@@ -11,9 +11,12 @@ public class Action implements Serializable {
     private String name;
     private double prix;
     private ArrayList<Double> historiqueValeurs;
+    private final ActionType type; // Nouveau champ
+    private final double mu; //Nouveau champ
+    private final double sigma; //Nouveau champ
     
     //Constructeur (pas de constructeur par défaut sans paramètres)
-    public Action(String name, double prix){
+    public Action(String name, double prix, ActionType type){
         if (prix <= 0) {
             throw new IllegalArgumentException("Le prix initial doit être supérieur à 0");
         }
@@ -21,6 +24,9 @@ public class Action implements Serializable {
         this.prix = prix;
         this.historiqueValeurs = new ArrayList<>();
         this.historiqueValeurs.add(prix);
+        this.type = type;
+        this.mu = type.getMu();
+        this.sigma = type.getSigma();
     }
 
     //Getters
@@ -38,6 +44,18 @@ public class Action implements Serializable {
 
     public ArrayList<Double> getHistoriqueValeurs(){
         return this.historiqueValeurs;
+    }
+
+    public double getMu() {
+        return mu;
+    }
+
+    public double getSigma() {
+        return sigma;
+    }
+    
+    public ActionType getType() {
+        return type;
     }
 
     //Setters
