@@ -4,8 +4,7 @@ import java.util.Objects;
 
 
 public class Action implements Serializable {
-    //Atributs
-    private static final long serialVersionUID = 1L;
+    
     private String name;
     private double prix;
     private double variation;
@@ -58,12 +57,12 @@ public class Action implements Serializable {
     //ToString pour l'affichage
     public String toString() {
         return ("Action: " + name + "\nPrix: " + prix + "\nDernière Variation: " 
-            + variation*100 +"%" + "\nHistorique des prix" + this.historiqueValeurs.toString() );
+            + variation*100 +"%" );
     }
 
 
     //Redef Equals et Hashcode par nom seulement
-    @Override
+
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof Action)) return false;
@@ -71,7 +70,6 @@ public class Action implements Serializable {
         return Objects.equals(name, action.name); // juste le nom
     }
 
-    @Override
     public int hashCode() {
         return Objects.hash(name);
     }
