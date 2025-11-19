@@ -2,12 +2,14 @@ import java.util.ArrayList;
 import java.io.*;
 import java.util.Objects;
 
+//###############
+//#Classe Action#
+//###############
 
 public class Action implements Serializable {
     
     private String name;
     private double prix;
-    private double variation;
     private ArrayList<Double> historiqueValeurs;
     
     //Constructeur (pas de constructeur par défaut sans paramètres)
@@ -17,7 +19,6 @@ public class Action implements Serializable {
         }
         this.name = name;
         this.prix = prix;
-        this.variation = 0.0;
         this.historiqueValeurs = new ArrayList<>();
         this.historiqueValeurs.add(prix);
     }
@@ -35,10 +36,6 @@ public class Action implements Serializable {
         return this.prix;
     }
 
-    public double getVariation(){
-        return this.variation;
-    }
-
     public ArrayList<Double> getHistoriqueValeurs(){
         return this.historiqueValeurs;
     }
@@ -48,7 +45,6 @@ public class Action implements Serializable {
         if (prix <= 0) {
             throw new IllegalArgumentException("Le prix initial doit être supérieur à 0");
         }
-        this.variation = (prix - this.prix) / Math.abs(this.prix);
         this.prix = prix;
         this.historiqueValeurs.add(prix);
 
@@ -56,8 +52,7 @@ public class Action implements Serializable {
 
     //ToString pour l'affichage
     public String toString() {
-        return ("Action: " + name + "\nPrix: " + prix + "\nDernière Variation: " 
-            + variation*100 +"%" );
+        return ("Action: " + name + "\nPrix: " + prix);
     }
 
 
