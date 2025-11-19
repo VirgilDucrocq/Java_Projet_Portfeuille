@@ -16,21 +16,34 @@ public class MajCoursThread implements Runnable {
         this.random = new Random();
     }
 
+    public double calculNouveauPrix(double S, double mu, double sigma, double dtSeconds){
+    double dt = dtSeconds;
+
+    double stochTerm = sigma * Math.sqrt(dt) * random.nextGaussian();
+    double driftTerm = (mu - (sigma * sigma) / 2.0) * dt;
+
+    double nouveauPrix = S * Math.exp(driftTerm + stochTerm);
+
+    return nouveauPrix;
+}
+
     public void run(){
+        // Conversion de l'intervalle de temps en secondes (dt)
+        final double dtSeconds = intervalMillis / 1000.0;
+
         while (true){
             try{
                 Thread.sleep(intervalMillis);
 
                 synchronized (stockGlobal){
                     for (Action action : actions){
-                        // Variation aléatoire -5% à +5%
-                        double variation = (random.nextDouble() * 0.10) - 0.05;
-                        double nouveauPrix = action.getPrix() * (1 + variation);
+                        double mu = 0.1;  //Taux de croissance annuelle espérée
+                        double sigma = 0.2;  //Volatilité annuelle espérée
 
-                        // Prix tjr positif
-                        if (nouveauPrix <= 0) nouveauPrix = 0.01;
+                        double nouveauPrix = calculNouveauPrix(action.getPrix(), mu, sigma, dtSeconds);
 
                         action.setPrix(nouveauPrix);
+
                     }
                 }
 
