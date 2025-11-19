@@ -65,8 +65,8 @@ public class Serveur{
     
     public static void main(String[] args) throws IOException, InterruptedException {
         // Création des actions
-        Action apple = new Action("Apple", 100);
-        Action google = new Action("Google", 200);
+        Action apple = new Action("Apple", 100, ActionType.VALEUR_TECH_CLASSIQUE);
+        Action google = new Action("Google", 200, ActionType.INDICE_STABLE);
         List<Action> actions = Arrays.asList(apple, google);
 
         // Stock initial côté serveur
