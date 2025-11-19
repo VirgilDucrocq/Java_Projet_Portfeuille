@@ -29,7 +29,7 @@ public class MajCoursThread implements Runnable {
 
     public void run(){
         // Conversion de l'intervalle de temps en secondes (dt)
-        final double SECONDS_PER_YEAR = 60.0 * 60.0 * 24.0 * 365.25;
+        final double SECONDS_PER_YEAR = 365.25;
         final double dtAnnee = (intervalMillis / 1000.0) / SECONDS_PER_YEAR;
 
         while (true){
@@ -38,10 +38,10 @@ public class MajCoursThread implements Runnable {
 
                 synchronized (stockGlobal){
                     for (Action action : actions){
-                        double mu = 0.1;  //Taux de croissance annuelle espérée
-                        double sigma = 0.2;  //Volatilité annuelle espérée
+                        double mu = action.getMu(); // Taux de croissance annuel espéré
+                        double sigma = action.getSigma(); // Volatilité annuelle espérée
 
-                        double nouveauPrix = calculNouveauPrix(action.getPrix(), mu, sigma, dtAnnee);
+                        double nouveauPrix = Math.floor(100*calculNouveauPrix(action.getPrix(), mu, sigma, dtAnnee)) / 100.0;
 
                         action.setPrix(nouveauPrix);
 
