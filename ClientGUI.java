@@ -1,103 +1,137 @@
 import javax.swing.*;
+import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.border.Border;
 import java.awt.*;
 import java.util.List;
-import java.util.Map; 
-import java.util.stream.Collectors; 
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 
 public class ClientGUI extends JFrame {
 
     private Client client;
 
-    private JTextArea portefeuilleArea;
-    private JPanel actionsPanel;
+    // Constantes CardLayout
+    private static final String CARD_CONNEXION = "CONNEXION";
+    private static final String CARD_SIMULATEUR = "SIMULATEUR";
+    
+    // UI Principale
+    private CardLayout cardLayout;
+    private JPanel cardPanel;
 
-    // Attributs pour le Graphique
-    private GraphiquePrix graphiquePanel; 
+    // Composants du simulateur
+    private JLabel clientNameLabel;
+    private JLabel soldeLabel; // Pour afficher le solde dans le bandeau
+    private PortefeuilleTableModel portefeuilleTableModel;
+    private JTable portefeuilleTable;
+    private ActionTableModel actionTableModel; // Renommé pour clarté
+    private JTable actionsTable;
+    private GraphiquePrix graphiquePanel;
     private Action actionGraphiqueCourante = null;
+    
+    // Composants d'interaction 
+    private JPanel interactionPanel;
+    private JLabel actionSelectionLabel;
+    private JButton acheterBtn;
+    private JButton vendreBtn;
 
-    // COULEURS et STYLES POUR L'ESTHÉTIQUE (rendu public pour la classe interne GraphiquePrix)
+
+    // COULEURS et STYLES POUR L'ESTHÉTIQUE
     public static final Color BG_DARK = new Color(30, 30, 30); // Gris très foncé
+    public static final Color BG_MEDIUM = new Color(45, 45, 45); // Gris moyen pour les conteneurs
     public static final Color FG_LIGHT = new Color(220, 220, 220); // Blanc cassé
     public static final Color ACCENT_GREEN = new Color(0, 180, 0); // Vert pour la finance
     public static final Color ACCENT_RED = new Color(255, 60, 60); // Rouge pour la perte
-    private static final Font FONT_MONO = new Font("Monospaced", Font.PLAIN, 12);
-    private static final Font FONT_TITLE = new Font("Arial", Font.BOLD, 16);
+    public static final Color ACCENT_BLUE = new Color(0, 120, 255); // Bleu pour l'information
+    private static final Font FONT_MONO = new Font("Monospaced", Font.PLAIN, 14);
+    private static final Font FONT_HEADER = new Font("Arial", Font.BOLD, 14);
+    private static final Font FONT_BAND = new Font("Arial", Font.BOLD, 20); // Pour le bandeau supérieur
 
 
     public ClientGUI() {
         setTitle("Client Boursier - Marchés en Temps Réel");
         
-        // Appliquer le look and feel pour un meilleur rendu
         try {
             UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
         } catch (Exception e) { /* Ignorer si non disponible */ }
 
         setSize(1200, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(new BorderLayout());
-        getContentPane().setBackground(BG_DARK);
-
-
-        // --- Panneau création client (NORTH) ---
-        JPanel connexionPanel = new JPanel(new GridLayout(3,2,5,5));
-        connexionPanel.setBackground(BG_DARK);
         
-        JTextField nomField = new JTextField();
-        JTextField capitalField = new JTextField("1000");
+        // Utilisation de CardLayout sur le panneau principal
+        cardLayout = new CardLayout();
+        cardPanel = new JPanel(cardLayout);
+        add(cardPanel, BorderLayout.CENTER);
+        
+        // Initialisation des deux vues
+        cardPanel.add(createConnexionPanel(), CARD_CONNEXION);
+        cardPanel.add(createSimulatorPanel(), CARD_SIMULATEUR);
+        
+        // Afficher l'écran de connexion au démarrage
+        cardLayout.show(cardPanel, CARD_CONNEXION);
 
-        // Appliquer le style aux labels et champs de texte
-        JLabel nomLabel = new JLabel("Nom :");
+        setVisible(true);
+    }
+    
+    // ==========================================================
+    // MÉTHODES DE CRÉATION DES ÉCRANS
+    // ==========================================================
+
+    /**
+     * Crée le panneau de connexion initial (Pas de changement)
+     */
+    private JPanel createConnexionPanel() {
+        // ... (Contenu identique à la version précédente) ...
+        JPanel panel = new JPanel(new GridBagLayout()); 
+        panel.setBackground(BG_DARK);
+
+        JPanel content = new JPanel(new GridLayout(3, 2, 10, 10)); 
+        content.setBackground(BG_MEDIUM);
+        content.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JTextField nomField = new JTextField(20);
+        JTextField capitalField = new JTextField("1000", 20);
+
+        JLabel nomLabel = new JLabel("Nom du Client :");
         nomLabel.setForeground(FG_LIGHT);
-        JLabel capitalLabel = new JLabel("Capital :");
+        nomLabel.setFont(FONT_HEADER);
+        JLabel capitalLabel = new JLabel("Capital Initial (€) :");
         capitalLabel.setForeground(FG_LIGHT);
-
-        connexionPanel.add(nomLabel);
-        connexionPanel.add(nomField);
-        connexionPanel.add(capitalLabel);
-        connexionPanel.add(capitalField);
-
-        JButton creerBtn = new JButton("Créer client");
-        JButton connecterBtn = new JButton("Se connecter au serveur");
-
-        connexionPanel.add(creerBtn);
-        connexionPanel.add(connecterBtn);
-
-        connexionPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(FG_LIGHT), 
-                                                                "CONNEXION", 0, 0, FONT_TITLE, FG_LIGHT));
-        add(connexionPanel, BorderLayout.NORTH);
-
-
-        // --- Zone portefeuille (CENTER) ---
-        portefeuilleArea = new JTextArea(10,30);
-        portefeuilleArea.setEditable(false);
-        portefeuilleArea.setFont(new Font("Monospaced", Font.BOLD, 24)); 
-        portefeuilleArea.setBackground(BG_DARK);
-        portefeuilleArea.setForeground(ACCENT_GREEN); 
-        portefeuilleArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); 
+        capitalLabel.setFont(FONT_HEADER);
         
-        JScrollPane scrollPortefeuille = new JScrollPane(portefeuilleArea);
-        scrollPortefeuille.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(FG_LIGHT), 
-                                                                "PORT. EN TEMPS RÉEL", 0, 0, FONT_TITLE, FG_LIGHT));
-        add(scrollPortefeuille, BorderLayout.CENTER);
+        nomField.setBackground(BG_DARK);
+        nomField.setForeground(ACCENT_GREEN);
+        capitalField.setBackground(BG_DARK);
+        capitalField.setForeground(ACCENT_GREEN);
 
 
-        // --- Zone actions (SOUTH) ---
-        actionsPanel = new JPanel();
-        actionsPanel.setLayout(new BoxLayout(actionsPanel, BoxLayout.Y_AXIS));
-        actionsPanel.setBackground(BG_DARK);
-        actionsPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(FG_LIGHT), 
-                                                            "ACTIONS DU MARCHÉ", 0, 0, FONT_TITLE, FG_LIGHT));
-        add(new JScrollPane(actionsPanel), BorderLayout.SOUTH);
+        JButton creerBtn = new JButton("Créer Client");
+        JButton connecterBtn = new JButton("Se Connecter au Marché");
 
-        // --- NOUVELLE ZONE GRAPHIQUE (EAST) ---
-        graphiquePanel = new GraphiquePrix();
-        graphiquePanel.setBackground(BG_DARK.darker()); 
-        graphiquePanel.setPreferredSize(new Dimension(400, 300)); 
-        graphiquePanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(FG_LIGHT), 
-                                                            "HISTORIQUE (10 POINTS)", 0, 0, FONT_TITLE, FG_LIGHT));
-        add(graphiquePanel, BorderLayout.EAST);
+        content.add(nomLabel);
+        content.add(nomField);
+        content.add(capitalLabel);
+        content.add(capitalField);
+        content.add(creerBtn);
+        content.add(connecterBtn);
+
+        JLabel titleLabel = new JLabel("SIMULATEUR DE MARCHÉ BOURSIER", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 30));
+        titleLabel.setForeground(FG_LIGHT);
         
-        // === Bouton création client ===
+        JPanel mainLayout = new JPanel(new BorderLayout(20, 20));
+        mainLayout.setBackground(BG_DARK);
+        mainLayout.setBorder(BorderFactory.createEmptyBorder(100, 200, 100, 200));
+        mainLayout.add(titleLabel, BorderLayout.NORTH);
+        mainLayout.add(content, BorderLayout.CENTER);
+        
+        panel.add(mainLayout); 
+        
+        // === Listeners Connexion ===
         creerBtn.addActionListener(e -> {
             String nom = nomField.getText();
             double capital;
@@ -109,196 +143,420 @@ public class ClientGUI extends JFrame {
             }
 
             client = new Client(nom, capital);
-            portefeuilleArea.setText(client.getPortefeuilleString());
             JOptionPane.showMessageDialog(this, "Client créé : " + nom);
         });
 
-        // === Bouton connexion serveur ===
         connecterBtn.addActionListener(e -> {
             if (client == null) {
-            JOptionPane.showMessageDialog(this, "Créez d'abord un client !");
-            return;
-        }
-
-        try {
-            client.seConnecter("localhost", 5001);
-            JOptionPane.showMessageDialog(this, "Connexion réussie !");
-            client.getActionsDisponibles(); // Première récupération
-            afficherActions(); // Premier affichage
-            
-            // Lancement du thread de mise à jour
-            client.lancerMiseAJourActions(this::afficherActions); 
-            
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Erreur de connexion : " + ex.getMessage());
-        }
-    });
-
-        setVisible(true);
-    }
-
-    // Affichage dynamique des actions reçues du serveur
-    private void afficherActions() {
-        actionsPanel.removeAll();
-        
-        // Utilise le nouveau getter qui retourne la Map (Action -> Stock)
-        Map<Action, Integer> stockMarche = client.getLastStockDisponible();
-        
-        if (stockMarche.isEmpty()) {
-            actionsPanel.add(createHeaderLabel("EN ATTENTE DES DONNÉES DU MARCHÉ", FONT_TITLE, FG_LIGHT));
-        }  
-
-        // En-tête du panneau des actions avec les colonnes
-        actionsPanel.add(createHeaderLabel(String.format("%-25s | %-10s | %-10s", 
-                                                        "ACTION", "QTÉ STOCK", "PRIX ACTUEL"), // <-- CHANGEMENT DU TEXTE
-                                                        FONT_TITLE, FG_LIGHT));
-        actionsPanel.add(new JSeparator(SwingConstants.HORIZONTAL));
-
-
-        // Recuperer dernières actions (prix les + recents)
-        for (Map.Entry<Action, Integer> entry : stockMarche.entrySet()) { 
-            Action a = entry.getKey();
-            int quantiteDisponible = entry.getValue(); // <-- QUANTITÉ DU STOCK DU MARCHÉ
-
-            JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            panel.setBackground(BG_DARK);
-
-            // 2. Création de l'affichage (style colonne)
-            String actionInfo = String.format("%-25s | %-10d | %.2f €", 
-                                              a.getName(), 
-                                              quantiteDisponible, 
-                                              a.getPrix());
-
-            JLabel label = new JLabel(actionInfo);
-            label.setForeground(FG_LIGHT); 
-            label.setFont(FONT_MONO); 
-            label.setCursor(new Cursor(Cursor.HAND_CURSOR)); 
-            
-            // Listener pour le graphique
-            Action actionGraphique = a; // Variable effectivement finale pour le listener
-            label.addMouseListener(new java.awt.event.MouseAdapter() {
-                public void mouseClicked(java.awt.event.MouseEvent evt) {
-                    actionGraphiqueCourante = actionGraphique; 
-                    graphiquePanel.setHistorique(actionGraphique.getHistoriqueValeurs());
-                    graphiquePanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(FG_LIGHT), 
-                                                            "HISTORIQUE DE " + actionGraphique.getName(), 0, 0, FONT_TITLE, FG_LIGHT));
-                }
-            });
-            
-            JButton acheterBtn = new JButton("Acheter 1");
-            JButton vendreBtn = new JButton("Vendre 1");
-            
-            // Les Listeners appellent getPortefeuilleString() pour rafraîchir l'affichage
-            Action actionPourListener = a; 
-            
-            acheterBtn.addActionListener(e -> {
-                boolean marketUpdateNeeded = client.demanderAchat(actionPourListener, 1);
-                if (marketUpdateNeeded) {
-                    client.getActionsDisponibles(); // Mise à jour du marché si achat réussi
-                }
-                afficherActions(); 
-            });
-
-            vendreBtn.addActionListener(e -> {
-                boolean marketUpdateNeeded = client.demanderVente(actionPourListener, 1);
-                if (marketUpdateNeeded) {
-                    client.getActionsDisponibles(); 
-                }
-                afficherActions(); 
-            });
-
-            panel.add(label);
-            panel.add(acheterBtn);
-            panel.add(vendreBtn);
-            actionsPanel.add(panel);
-        }
-        
-        // 3. Mise à jour de la zone du portefeuille
-        if (client != null) {
-            portefeuilleArea.setText(client.getPortefeuilleString()); 
-        }
-        
-        // 4. Mise à jour en temps réel du graphique
-        if (actionGraphiqueCourante != null) {
-            // Utilise le keySet de la Map pour obtenir la liste des Actions mises à jour
-            for (Action actionMiseAJour : stockMarche.keySet()) { // <-- FIX: Utilise stockMarche.keySet()
-                if (actionMiseAJour.getName().equals(actionGraphiqueCourante.getName())) {
-                    
-                    // Mettre à jour l'objet mémorisé avec la nouvelle instance (et donc le nouvel historique)
-                    actionGraphiqueCourante = actionMiseAJour;
-                    
-                    // Mettre à jour le panneau graphique avec le nouvel historique
-                    graphiquePanel.setHistorique(actionGraphiqueCourante.getHistoriqueValeurs());
-                    
-                    // Mettre à jour la bordure
-                    graphiquePanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(FG_LIGHT), 
-                                                            "HISTORIQUE DE " + actionGraphiqueCourante.getName(), 0, 0, FONT_TITLE, FG_LIGHT));
-                    break;
-                }
+                JOptionPane.showMessageDialog(this, "Créez d'abord un client !");
+                return;
             }
-        }
 
-        actionsPanel.revalidate();
-        actionsPanel.repaint();
+            try {
+                client.seConnecter("localhost", 5001);
+                client.getActionsDisponibles(); 
+                
+                // Mettre à jour le bandeau avec le nom du client avant de montrer l'écran
+                clientNameLabel.setText("Client: " + client.getName());
+                updateSimulatorDisplay(); 
+                
+                client.lancerMiseAJourActions(this::updateSimulatorDisplay); 
+                
+                cardLayout.show(cardPanel, CARD_SIMULATEUR);
+                
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Erreur de connexion : " + ex.getMessage());
+            }
+        });
+        
+        return panel;
     }
     
-    // Méthode utilitaire pour les titres
-    private JLabel createHeaderLabel(String text, Font font, Color color) {
-        JLabel label = new JLabel(text);
-        label.setFont(font);
-        label.setForeground(color);
-        label.setBackground(BG_DARK);
-        return label;
+    /**
+     * Crée le panneau principal du simulateur (avec Bandeau et JTabbedPane)
+     */
+    private JPanel createSimulatorPanel() {
+        JPanel simulatorPanel = new JPanel(new BorderLayout());
+        simulatorPanel.setBackground(BG_DARK);
+        
+        // 1. Bandeau Supérieur (Nom du client, Solde, Déconnexion)
+        JPanel topBanner = new JPanel(new BorderLayout(20, 0));
+        topBanner.setBackground(BG_MEDIUM);
+        topBanner.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+        
+        // Labels d'information
+        clientNameLabel = new JLabel("Client: (Non connecté)");
+        clientNameLabel.setForeground(FG_LIGHT);
+        clientNameLabel.setFont(FONT_BAND);
+        
+        soldeLabel = new JLabel("Solde Disponible: 0.00 € | Valeur Totale: 0.00 €");
+        soldeLabel.setForeground(ACCENT_BLUE);
+        soldeLabel.setFont(FONT_BAND);
+        
+        // Bouton de déconnexion
+        JButton deconnecterBtn = new JButton("Déconnexion");
+        deconnecterBtn.addActionListener(e -> handleDisconnection());
+        
+        topBanner.add(clientNameLabel, BorderLayout.WEST);
+        topBanner.add(soldeLabel, BorderLayout.CENTER);
+        topBanner.add(deconnecterBtn, BorderLayout.EAST);
+        
+        simulatorPanel.add(topBanner, BorderLayout.NORTH);
+        
+        // 2. Zone Tabulée (Centre)
+        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane.setFont(FONT_HEADER);
+        tabbedPane.setBackground(BG_MEDIUM.darker());
+        tabbedPane.setForeground(FG_LIGHT);
+        
+        // Onglet 1: Marché et Graphique (Ancien CENTER + SOUTH)
+        tabbedPane.addTab("Marché et Actions", createMarketPanel());
+        
+        // Onglet 2: Portefeuille (Nouvelle refonte)
+        tabbedPane.addTab("Mon Portefeuille", createPortefeuillePanel());
+        
+        simulatorPanel.add(tabbedPane, BorderLayout.CENTER);
+
+        return simulatorPanel;
+    }
+    
+    /**
+     * Crée le panneau de l'onglet "Marché et Actions"
+     */
+    private JPanel createMarketPanel() {
+        JPanel marketPanel = new JPanel(new BorderLayout(10, 10));
+        marketPanel.setBackground(BG_DARK);
+        marketPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        // 1. Tableau des actions (LEFT - Occupant le centre du tab)
+        actionTableModel = new ActionTableModel();
+        actionsTable = new JTable(actionTableModel);
+        
+        // Style du JTable
+        actionsTable.setFont(FONT_MONO);
+        actionsTable.setBackground(BG_MEDIUM);
+        actionsTable.setForeground(FG_LIGHT);
+        actionsTable.setSelectionBackground(BG_MEDIUM.brighter());
+        actionsTable.setSelectionForeground(Color.WHITE);
+        actionsTable.setRowHeight(25);
+        
+        // Alignement des colonnes (Prix et Stock)
+        DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
+        rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
+        actionsTable.getColumnModel().getColumn(1).setCellRenderer(rightRenderer); 
+        actionsTable.getColumnModel().getColumn(2).setCellRenderer(rightRenderer); 
+        
+        JScrollPane scrollActions = new JScrollPane(actionsTable);
+        scrollActions.setBorder(createTitledBorder("ACTIONS DISPONIBLES EN TEMPS RÉEL", FG_LIGHT));
+        
+        // Listener pour la sélection de ligne (pour le graphique et les boutons)
+        actionsTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && actionsTable.getSelectedRow() != -1) {
+                handleActionSelection(actionsTable.getSelectedRow());
+            }
+        });
+        
+        // 2. Panneau de droite (Graphique + Interaction)
+        JPanel eastPanel = new JPanel(new BorderLayout(10, 10));
+        eastPanel.setPreferredSize(new Dimension(450, 0));
+        eastPanel.setBackground(BG_DARK);
+
+        graphiquePanel = new GraphiquePrix();
+        graphiquePanel.setBackground(BG_MEDIUM); 
+        graphiquePanel.setPreferredSize(new Dimension(450, 400)); 
+        graphiquePanel.setBorder(createTitledBorder("HISTORIQUE (Sélectionnez une action)", FG_LIGHT));
+        
+        // Panneau d'interaction (Acheter/Vendre)
+        interactionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
+        interactionPanel.setBackground(BG_MEDIUM.darker());
+        interactionPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        actionSelectionLabel = new JLabel("Sélectionnez une action pour interagir.");
+        actionSelectionLabel.setForeground(FG_LIGHT);
+        actionSelectionLabel.setFont(FONT_HEADER);
+        
+        acheterBtn = new JButton("ACHETER 1");
+        vendreBtn = new JButton("VENDRE 1");
+        
+        acheterBtn.setEnabled(false);
+        vendreBtn.setEnabled(false);
+        
+        interactionPanel.add(actionSelectionLabel);
+        interactionPanel.add(acheterBtn);
+        interactionPanel.add(vendreBtn);
+        
+        eastPanel.add(graphiquePanel, BorderLayout.CENTER);
+        eastPanel.add(interactionPanel, BorderLayout.SOUTH);
+        
+        // Assemblage final du Market Panel
+        marketPanel.add(scrollActions, BorderLayout.CENTER);
+        marketPanel.add(eastPanel, BorderLayout.EAST);
+        
+        return marketPanel;
+    }
+    
+    /**
+     * Crée le panneau de l'onglet "Mon Portefeuille" (Refonte)
+     */
+    private JPanel createPortefeuillePanel() {
+        JPanel portefeuillePanel = new JPanel(new BorderLayout(10, 10));
+        portefeuillePanel.setBackground(BG_DARK);
+        portefeuillePanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // 1. Tableau des actions détenues
+        portefeuilleTableModel = new PortefeuilleTableModel();
+        portefeuilleTable = new JTable(portefeuilleTableModel);
+        
+        // Style du JTable
+        portefeuilleTable.setFont(FONT_MONO);
+        portefeuilleTable.setBackground(BG_MEDIUM);
+        portefeuilleTable.setForeground(FG_LIGHT);
+        portefeuilleTable.setSelectionBackground(BG_MEDIUM.brighter());
+        portefeuilleTable.setRowHeight(25);
+        
+        // Renderer pour centrer et colorer
+        DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
+        rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
+        
+        // Renderer spécifique pour la variation de prix (colonne 5)
+        DefaultTableCellRenderer variationRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                label.setHorizontalAlignment(SwingConstants.RIGHT);
+                
+                double variation = (Double) value;
+                if (variation > 0) {
+                    label.setForeground(ACCENT_GREEN);
+                    label.setText("+" + label.getText());
+                } else if (variation < 0) {
+                    label.setForeground(ACCENT_RED);
+                } else {
+                    label.setForeground(FG_LIGHT);
+                }
+                return label;
+            }
+        };
+
+        // Application des renderers
+        for (int i = 1; i <= 4; i++) {
+            portefeuilleTable.getColumnModel().getColumn(i).setCellRenderer(rightRenderer);
+        }
+        portefeuilleTable.getColumnModel().getColumn(5).setCellRenderer(variationRenderer);
+
+        JScrollPane scrollPortefeuille = new JScrollPane(portefeuilleTable);
+        scrollPortefeuille.setBorder(createTitledBorder("ACTIONS DÉTENUES", FG_LIGHT));
+
+        portefeuillePanel.add(scrollPortefeuille, BorderLayout.CENTER);
+        
+        // Vous pouvez ajouter ici un panneau pour l'historique des transactions si besoin
+        
+        return portefeuillePanel;
+    }
+    
+    
+    // ==========================================================
+    // LOGIQUE DE MISE À JOUR & D'INTERACTION
+    // ==========================================================
+    
+    /**
+     * Gère la déconnexion et le retour à l'écran de connexion.
+     */
+    private void handleDisconnection() {
+        if (client != null) {
+             // Supposons une méthode pour arrêter le thread dans Client.java
+             // client.deconnecter(); 
+             client = null;
+        }
+        
+        // Réinitialiser l'affichage
+        clientNameLabel.setText("Client: (Non connecté)");
+        soldeLabel.setText("Solde Disponible: 0.00 € | Valeur Totale: 0.00 €");
+        actionTableModel.clearData();
+        portefeuilleTableModel.clearData();
+        graphiquePanel.setHistorique(null);
+        actionGraphiqueCourante = null;
+        
+        // Retour à l'écran de connexion
+        cardLayout.show(cardPanel, CARD_CONNEXION);
+        JOptionPane.showMessageDialog(this, "Déconnexion réussie !");
+    }
+
+    /**
+     * Gère la sélection d'une ligne dans le JTable des actions disponibles.
+     */
+    private void handleActionSelection(int selectedRow) {
+        // Convertit l'index de vue en index de modèle (nécessaire si le tri est activé)
+        int modelRow = actionsTable.convertRowIndexToModel(selectedRow);
+        ActionStock as = actionTableModel.getActionStockAt(modelRow);
+        
+        if (as == null) return;
+        
+        Action a = as.action;
+        
+        // 1. Mise à jour du graphique
+        actionGraphiqueCourante = a;
+        graphiquePanel.setHistorique(a.getHistoriqueValeurs());
+        graphiquePanel.setBorder(createTitledBorder("HISTORIQUE DE " + a.getName(), FG_LIGHT));
+        
+        // 2. Mise à jour du panneau d'interaction
+        actionSelectionLabel.setText(String.format("Action: %s (%.2f €) | Stock Marché: %d", 
+                                                    a.getName(), a.getPrix(), as.stock));
+        
+        acheterBtn.setEnabled(as.stock > 0); 
+        vendreBtn.setEnabled(true);
+        
+        // Retrait des anciens listeners 
+        for (java.awt.event.ActionListener al : acheterBtn.getActionListeners()) {
+            acheterBtn.removeActionListener(al);
+        }
+        for (java.awt.event.ActionListener al : vendreBtn.getActionListeners()) {
+            vendreBtn.removeActionListener(al);
+        }
+
+        // Ajout des nouveaux listeners (logique Achat/Vente)
+        acheterBtn.addActionListener(e -> {
+            boolean marketUpdateNeeded = client.demanderAchat(a, 1);
+            if (marketUpdateNeeded) {
+                client.getActionsDisponibles(); 
+            }
+            updateSimulatorDisplay(); 
+        });
+
+        vendreBtn.addActionListener(e -> {
+            boolean marketUpdateNeeded = client.demanderVente(a, 1);
+            if (marketUpdateNeeded) {
+                client.getActionsDisponibles(); 
+            }
+            updateSimulatorDisplay(); 
+        });
+    }
+
+
+    /**
+     * Met à jour le bandeau, la table des actions et le portefeuille.
+     */
+    public void updateSimulatorDisplay() {
+        if (client == null) return;
+        
+        Map<Action, Integer> stockMarche = client.getLastStockDisponible();
+        Portefeuille portefeuille = client.getPortefeuille();
+        
+        // 1. Mise à jour du Bandeau
+        double soldeDispo = portefeuille.getSoldeDispo();
+        double valeurTotale = soldeDispo + portefeuille.getValeurPortefeuille();
+        soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: %.2f €", soldeDispo, valeurTotale));
+        
+        // 2. Mise à jour de la Table des actions disponibles
+        actionTableModel.setData(stockMarche);
+        
+        // 3. Mise à jour de la Table du Portefeuille (Nouvelle)
+        portefeuilleTableModel.setData(portefeuille.getPortefeuille(), stockMarche);
+        
+        // 4. Mise à jour du graphique en temps réel (si une action est sélectionnée)
+        if (actionGraphiqueCourante != null) {
+            Action updatedAction = stockMarche.keySet().stream()
+                .filter(a -> a.getName().equals(actionGraphiqueCourante.getName()))
+                .findFirst()
+                .orElse(null);
+
+            if (updatedAction != null) {
+                actionGraphiqueCourante = updatedAction;
+                graphiquePanel.setHistorique(actionGraphiqueCourante.getHistoriqueValeurs());
+                graphiquePanel.setBorder(createTitledBorder("HISTORIQUE DE " + actionGraphiqueCourante.getName(), FG_LIGHT));
+                
+                 int currentStock = stockMarche.getOrDefault(updatedAction, 0);
+
+                actionSelectionLabel.setText(String.format("Action: %s (%.2f €) | Stock Marché: %d", 
+                                                            actionGraphiqueCourante.getName(), 
+                                                            actionGraphiqueCourante.getPrix(),
+                                                            currentStock));
+                acheterBtn.setEnabled(currentStock > 0);
+            }
+        }
+        
+        revalidate();
+        repaint();
+    }
+    
+    // ==========================================================
+    // MÉTHODES UTILITAIRES
+    // ==========================================================
+
+    /**
+     * Crée une bordure titrée stylisée.
+     */
+    private Border createTitledBorder(String title, Color color) {
+        return BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(color.darker(), 1), 
+            title, 
+            0, 0, 
+            FONT_HEADER, 
+            color
+        );
     }
     
 }
 
 
-
 //==============================================================
-// CLASSE INTERNE 1 : Le panneau pour le graphique
-// NOTE: Utilisez les constantes de couleur rendues publiques (ClientGUI.FG_LIGHT, etc.)
+// CLASSE INTERNE 1 : Le panneau pour le graphique (Correction Couleur)
 //==============================================================
 
 class GraphiquePrix extends JPanel {
     
     private List<Double> historique;
-    private static final int MARGIN = 30; // Marge pour les axes
-    private static final int POINT_SIZE = 5;
+    private static final int MARGIN = 30; 
+    private static final int POINT_SIZE = 6; 
 
     public void setHistorique(List<Double> historique) {
-        // Garder seulement les 10 dernières valeurs
-        this.historique = historique.size() > 10 ? historique.subList(historique.size() - 10, historique.size()) : historique;
-        repaint(); // Force la redéfinition du graphique
+        if(historique != null) {
+            this.historique = historique.size() > 10 ? historique.subList(historique.size() - 10, historique.size()) : historique;
+        } else {
+            this.historique = null;
+        }
+        repaint();
     }
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         
-        // Dessiner le fond du panneau (pour s'assurer que BG_DARK.darker() est utilisé)
-        g.setColor(getBackground());
-        g.fillRect(0, 0, getWidth(), getHeight());
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        
+        g2d.setColor(getBackground());
+        g2d.fillRect(0, 0, getWidth(), getHeight());
         
         if (historique == null || historique.size() < 2) {
-            g.setColor(ClientGUI.FG_LIGHT);
-            g.drawString("Pas assez de données (min 2 points) ou non sélectionné.", MARGIN, getHeight() / 2);
+            g2d.setColor(ClientGUI.FG_LIGHT);
+            g2d.drawString("Sélectionnez une action ou en attente de données (min 2 points).", MARGIN, getHeight() / 2);
             return;
         }
 
         int width = getWidth();
         int height = getHeight();
         
-        // Trouver le min et le max pour mettre à l'échelle
-        double minPrix = historique.stream().min(Double::compare).get();
-        double maxPrix = historique.stream().max(Double::compare).get();
+        double minPrix = historique.stream().mapToDouble(d -> d).min().orElse(0.0);
+        double maxPrix = historique.stream().mapToDouble(d -> d).max().orElse(0.0);
         double range = maxPrix - minPrix;
         
-        // --- Axes ---
-        g.setColor(ClientGUI.FG_LIGHT); 
-        g.drawLine(MARGIN, MARGIN, MARGIN, height - MARGIN); // Axe Y
-        g.drawLine(MARGIN, height - MARGIN, width - MARGIN, height - MARGIN); // Axe X
+        // --- Grille de fond ---
+        g2d.setColor(ClientGUI.BG_DARK.brighter().brighter()); 
+        int numGrids = 5;
+        for (int i = 1; i < numGrids; i++) {
+            int yGrid = MARGIN + i * (height - 2 * MARGIN) / numGrids;
+            g2d.drawLine(MARGIN, yGrid, width - MARGIN, yGrid);
+        }
         
+        // --- Axes et Labels ---
+        g2d.setColor(ClientGUI.FG_LIGHT); 
+        g2d.drawLine(MARGIN, MARGIN, MARGIN, height - MARGIN); 
+        g2d.drawLine(MARGIN, height - MARGIN, width - MARGIN, height - MARGIN); 
+        
+        g2d.drawString(String.format("%.2f", maxPrix), 5, MARGIN + 5);
+        g2d.drawString(String.format("%.2f", minPrix), 5, height - MARGIN);
+
         // Points et lignes
         int nPoints = historique.size();
         
@@ -308,10 +566,8 @@ class GraphiquePrix extends JPanel {
         for (int i = 0; i < nPoints; i++) {
             double prix = historique.get(i);
             
-            // Calcul de la position X
             int x = MARGIN + i * (width - 2 * MARGIN) / (nPoints - 1);
             
-            // Calcul de la position Y (Mise à l'échelle)
             int y;
             if (range == 0) { 
                 y = height - MARGIN - (height - 2 * MARGIN) / 2; 
@@ -319,23 +575,219 @@ class GraphiquePrix extends JPanel {
                 y = height - MARGIN - (int) ((prix - minPrix) / range * (height - 2 * MARGIN));
             }
             
-            // Dessiner la ligne entre les points
+            // Correction de la logique de couleur: Comparer au point précédent
             if (i > 0) {
-                g.setColor(ClientGUI.ACCENT_GREEN); 
-                g.drawLine(prevX, prevY, x, y);
+                double prixPrecedent = historique.get(i - 1);
+                Color lineColor = (prix >= prixPrecedent) ? ClientGUI.ACCENT_GREEN : ClientGUI.ACCENT_RED;
+                
+                g2d.setColor(lineColor);
+                g2d.setStroke(new BasicStroke(2)); 
+                g2d.drawLine(prevX, prevY, x, y);
             }
 
             // Dessiner le point
-            g.setColor(Color.CYAN);
-            g.fillOval(x - POINT_SIZE / 2, y - POINT_SIZE / 2, POINT_SIZE, POINT_SIZE);
+            g2d.setColor(Color.CYAN);
+            g2d.fillOval(x - POINT_SIZE / 2, y - POINT_SIZE / 2, POINT_SIZE, POINT_SIZE);
             
-            // Afficher le prix
-            g.setColor(ClientGUI.FG_LIGHT);
-            g.drawString(String.format("%.2f", prix), x - 10, y - 10);
+            // Afficher le prix (dernier point)
+            if (i == nPoints - 1) {
+                g2d.setColor(ClientGUI.FG_LIGHT);
+                g2d.drawString(String.format("%.2f", prix), x - 10, y - 10);
+            }
             
-            // Mise à jour pour la prochaine itération
             prevX = x;
             prevY = y;
+        }
+    }
+}
+
+
+//==============================================================
+// CLASSE INTERNE 2 : Modèle de données pour le JTable des Actions disponibles
+//==============================================================
+
+class ActionStock {
+    public final Action action;
+    public final int stock;
+    
+    public ActionStock(Action action, int stock) {
+        this.action = action;
+        this.stock = stock;
+    }
+}
+
+class ActionTableModel extends AbstractTableModel {
+    
+    private List<ActionStock> actionStocks;
+    private final String[] columnNames = {"Action", "Prix (€)", "Stock Marché"};
+    
+    public ActionTableModel() {
+        this.actionStocks = new ArrayList<>(); 
+    }
+    
+    public void setData(Map<Action, Integer> stockMarche) {
+        this.actionStocks = stockMarche.entrySet().stream()
+                .map(entry -> new ActionStock(entry.getKey(), entry.getValue()))
+                .sorted(Comparator.comparing(as -> as.action.getName()))
+                .collect(Collectors.toList());
+        fireTableDataChanged();
+    }
+    
+    public void clearData() {
+        this.actionStocks = new ArrayList<>();
+        fireTableDataChanged();
+    }
+    
+    public ActionStock getActionStockAt(int rowIndex) {
+        if (rowIndex >= 0 && rowIndex < actionStocks.size()) {
+            return actionStocks.get(rowIndex);
+        }
+        return null;
+    }
+
+    @Override
+    public int getRowCount() {
+        return actionStocks.size();
+    }
+
+    @Override
+    public int getColumnCount() {
+        return columnNames.length;
+    }
+
+    @Override
+    public String getColumnName(int col) {
+        return columnNames[col];
+    }
+    
+    @Override
+    public Class<?> getColumnClass(int columnIndex) {
+        if (columnIndex == 1) return Double.class; 
+        if (columnIndex == 2) return Integer.class; 
+        return String.class; 
+    }
+
+    @Override
+    public Object getValueAt(int rowIndex, int columnIndex) {
+        ActionStock as = actionStocks.get(rowIndex);
+        
+        switch (columnIndex) {
+            case 0: return as.action.getName();
+            case 1: return as.action.getPrix();
+            case 2: return as.stock; 
+            default: return null;
+        }
+    }
+}
+
+//==============================================================
+// CLASSE INTERNE 3 : Modèle de données pour le JTable du Portefeuille (Refonte)
+//==============================================================
+
+class ActionPortefeuille {
+    public final Action action;
+    public final int quantite;
+    public final double prixAchat;
+    public final double valeurActuelle;
+    public final double variation; // Variation % ou abs par rapport au prix d'achat
+    
+    public ActionPortefeuille(Action action, int quantite, double prixAchat, double prixActuel) {
+        this.action = action;
+        this.quantite = quantite;
+        this.prixAchat = prixAchat;
+        this.valeurActuelle = prixActuel * quantite;
+        // Calcul de la variation en pourcentage
+        this.variation = (prixActuel / prixAchat - 1.0) * 100.0;
+    }
+}
+
+class PortefeuilleTableModel extends AbstractTableModel {
+    
+    private List<ActionPortefeuille> actionsDetenues;
+    private final String[] columnNames = {"Action", "Quantité", "Prix Achat (€)", "Prix Actuel (€)", "Valeur Totale (€)", "Variation (%)"};
+    
+    public PortefeuilleTableModel() {
+        this.actionsDetenues = new ArrayList<>(); 
+    }
+    
+    /**
+     * Met à jour les données du tableau avec la Map <Action, Quantité détenue> et les prix du marché.
+     * La Map stockMarche est utilisée pour récupérer l'objet Action le plus récent (avec les prix actuels).
+     */
+    public void setData(Map<Action, Integer> portefeuilleDetenu, Map<Action, Integer> stockMarche) {
+        this.actionsDetenues = portefeuilleDetenu.entrySet().stream()
+                .filter(entry -> entry.getValue() > 0)
+                .map(entry -> {
+                    Action actionDetenue = entry.getKey();
+                    int quantite = entry.getValue();
+                    
+                    // Trouver l'action correspondante dans le stock marché pour le prix ACTUEL
+                    Action actionMarche = stockMarche.keySet().stream()
+                        .filter(a -> a.getName().equals(actionDetenue.getName()))
+                        .findFirst()
+                        .orElse(actionDetenue); // Utilise l'ancienne si non trouvée (ne devrait pas arriver)
+                        
+                    // Le prix d'achat de l'action détenue est stocké dans l'objet ActionPortefeuille original.
+                    // IMPORTANT : Je suppose ici que actionDetenue.getPrix() renvoie le prix d'achat initial.
+                    // Si ce n'est pas le cas, vous devez stocker le prix d'achat initial dans Portefeuille.java.
+                    // Pour le moment, je vais créer une variable hypothétique pour le prix d'achat.
+                    // Pour que le calcul de variation fonctionne, chaque Action détenue doit connaitre son prix d'achat.
+                    // Pour simplifier ici, on va supposer que Portefeuille.java a un getter pour le prix d'achat.
+                    // Pour le moment, je vais utiliser une valeur fixe comme prix d'achat pour que l'interface s'affiche.
+                    
+                    // TODO: Remplacer 100.0 par actionDetenue.getPrixAchat() une fois disponible.
+                    double prixAchatSupposed = actionDetenue.getPrix(); 
+                    
+                    return new ActionPortefeuille(
+                        actionMarche, 
+                        quantite, 
+                        prixAchatSupposed, // Le prix de la première transaction d'achat est utilisé ici
+                        actionMarche.getPrix()
+                    );
+                })
+                .sorted(Comparator.comparing(ap -> ap.action.getName()))
+                .collect(Collectors.toList());
+        fireTableDataChanged();
+    }
+    
+    public void clearData() {
+        this.actionsDetenues = new ArrayList<>();
+        fireTableDataChanged();
+    }
+
+    @Override
+    public int getRowCount() {
+        return actionsDetenues.size();
+    }
+
+    @Override
+    public int getColumnCount() {
+        return columnNames.length;
+    }
+
+    @Override
+    public String getColumnName(int col) {
+        return columnNames[col];
+    }
+    
+    @Override
+    public Class<?> getColumnClass(int columnIndex) {
+        if (columnIndex >= 1) return Double.class; // Quantité, prix, valeur, variation sont des nombres
+        return String.class; 
+    }
+
+    @Override
+    public Object getValueAt(int rowIndex, int columnIndex) {
+        ActionPortefeuille ap = actionsDetenues.get(rowIndex);
+        
+        switch (columnIndex) {
+            case 0: return ap.action.getName();
+            case 1: return ap.quantite;
+            case 2: return ap.prixAchat;
+            case 3: return ap.action.getPrix();
+            case 4: return ap.valeurActuelle;
+            case 5: return ap.variation;
+            default: return null;
         }
     }
 }
