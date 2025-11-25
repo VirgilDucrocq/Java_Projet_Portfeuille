@@ -13,8 +13,6 @@ public class Action implements Serializable {
     private double prix;
     private ArrayList<Double> historiqueValeurs;
     private final ActionType type; // Differents type d'actions + ou - stables 
-    private final double mu; 
-    private final double sigma; 
     
     //Constructeur (pas de constructeur par défaut sans paramètres, on veut obligatoirement nom, prix et type)
     public Action(String name, double prix, ActionType type){
@@ -26,8 +24,6 @@ public class Action implements Serializable {
         this.historiqueValeurs = new ArrayList<>();
         this.historiqueValeurs.add(prix);
         this.type = type;
-        this.mu = type.getMu();
-        this.sigma = type.getSigma();
     }
 
     //Getters
@@ -48,11 +44,11 @@ public class Action implements Serializable {
     }
 
     public double getMu() {
-        return mu;
+        return type.getMu();
     }
 
     public double getSigma() {
-        return sigma;
+        return type.getSigma();
     }
     
     public ActionType getType() {
