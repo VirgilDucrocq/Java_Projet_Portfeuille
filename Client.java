@@ -5,13 +5,17 @@ import java.util.Scanner;
 import java.util.*;
 import javax.swing.SwingUtilities;
 
+//Serializable car les transactions comprennent un client qui va donc etre envoyé par socket
 public class Client implements Serializable {
 
+    
     private String name;
     private Socket socket;
     private Portefeuille portefeuille;
+    //Ici l'écoute et l'envoi sont geres en interne de la classe 
     private ObjectOutputStream out;
     private ObjectInputStream in;
+    //Va servir a recuperer le stock dispo envoye par le serveur 
     private Map<Action, Integer> stockDisponible = Collections.emptyMap();
 
 
@@ -21,6 +25,7 @@ public class Client implements Serializable {
         this.portefeuille = new Portefeuille(this, soldeInitial);
     }
 
+    //Getters
     public String getName(){
         return this.name;
     }
@@ -29,10 +34,12 @@ public class Client implements Serializable {
         return this.portefeuille;
     }
 
+    //recuperer le dernier stock dispo
     public Map<Action, Integer> getLastStockDisponible() {
         return this.stockDisponible;
     }
 
+    //recuperer les actions dans la variable apres l'avoir remplie 
     public List<Action> getLastActionsDisponibles() {
         // FIX: Retourne la List<Action> à partir des clés de la Map stockDisponible
         return new ArrayList<>(this.stockDisponible.keySet()); 
@@ -63,6 +70,7 @@ public class Client implements Serializable {
     }
 
 
+    //recuperer le stock du serveur
     public synchronized void getActionsDisponibles() { // Modifier le nom en getStockDisponible() serait plus clair
         try {
             out.writeObject("GET_ACTIONS");
@@ -88,6 +96,7 @@ public class Client implements Serializable {
         }
     }
 
+    //fonction principale pour se connecter au serveur 
     public void seConnecter(String host, int port){
         try {
             socket = new Socket(host, port);
@@ -102,6 +111,7 @@ public class Client implements Serializable {
         }
     }
 
+    //lance le thread de MAJ en interne pour revuperer les actions a jour 
     public void lancerMiseAJourActions(Runnable callback) {
         new Thread(() -> {
             System.out.println("Thread de mise à jour des prix démarré.");
@@ -135,6 +145,7 @@ public class Client implements Serializable {
         }).start();
     }
 
+    //envoie dune demande d'achat au serveur 
     public boolean demanderAchat(Action action, int quantite){
         double cout = action.getPrix() * quantite;
         
@@ -158,6 +169,7 @@ public class Client implements Serializable {
     }
 
 
+    // envoyer demande de vente au serveur 
     public boolean demanderVente(Action action, int quantite){
         int possede = portefeuille.getPortefeuille().getOrDefault(action, 0);
 
@@ -183,6 +195,7 @@ public class Client implements Serializable {
     }
 
 
+    //sous programme pour les demandes de vente/achat
     public synchronized Transaction envoyerTransaction(Transaction t) {
         try {
             System.out.println("\n[Client] Envoi transaction: " + t);
@@ -202,6 +215,7 @@ public class Client implements Serializable {
     }
 
 
+    //Main : lance linterface graphique
 
     public static void main(String[] args) {
 
