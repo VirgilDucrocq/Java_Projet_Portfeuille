@@ -1,3 +1,6 @@
+// Aide de l'IA ici car nous n'avons pas eu le temps de prendre vraiment en main la librairie
+// (Surtout une aide au niveau de la gestion des classes internes / gestion des couleurs tables etc)
+
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -28,9 +31,10 @@ public class ClientGUI extends JFrame {
     private JLabel soldeLabel; // Pour afficher le solde dans le bandeau
     private PortefeuilleTableModel portefeuilleTableModel;
     private JTable portefeuilleTable;
-    private ActionTableModel actionTableModel; // Renommé pour clarté
+    private ActionTableModel actionTableModel;
     private JTable actionsTable;
     private GraphiquePrix graphiquePanel;
+    //Utilise juste pour selectionner un action pour laquelle on affiche le graphique
     private Action actionGraphiqueCourante = null;
     
     // Composants d'interaction 
@@ -51,14 +55,17 @@ public class ClientGUI extends JFrame {
     private static final Font FONT_HEADER = new Font("Arial", Font.BOLD, 14);
     private static final Font FONT_BAND = new Font("Arial", Font.BOLD, 20); // Pour le bandeau supérieur
 
-
+    //Constructeur
     public ClientGUI() {
+        //Titre
         setTitle("Client Boursier - Marchés en Temps Réel");
-        
+
+        //On essaie d'appliquer le style nimbus qui est plus joli
         try {
             UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
         } catch (Exception e) { /* Ignorer si non disponible */ }
 
+        //Taille à regler
         setSize(1200, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
@@ -81,18 +88,17 @@ public class ClientGUI extends JFrame {
     // MÉTHODES DE CRÉATION DES ÉCRANS
     // ==========================================================
 
-    /**
-     * Crée le panneau de connexion initial (Pas de changement)
-     */
+    //Crée le panneau de connexion initial (Pas de changement)
     private JPanel createConnexionPanel() {
-        // ... (Contenu identique à la version précédente) ...
+        //Cree le panel
         JPanel panel = new JPanel(new GridBagLayout()); 
         panel.setBackground(BG_DARK);
-
+        
         JPanel content = new JPanel(new GridLayout(3, 2, 10, 10)); 
         content.setBackground(BG_MEDIUM);
         content.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
+        //champs à remplir
         JTextField nomField = new JTextField(20);
         JTextField capitalField = new JTextField("1000", 20);
 
@@ -108,7 +114,7 @@ public class ClientGUI extends JFrame {
         capitalField.setBackground(BG_DARK);
         capitalField.setForeground(ACCENT_GREEN);
 
-
+        //Bouttons
         JButton creerBtn = new JButton("Créer Client");
         JButton connecterBtn = new JButton("Se Connecter au Marché");
 
@@ -118,7 +124,7 @@ public class ClientGUI extends JFrame {
         content.add(capitalField);
         content.add(creerBtn);
         content.add(connecterBtn);
-
+        
         JLabel titleLabel = new JLabel("SIMULATEUR DE MARCHÉ BOURSIER", SwingConstants.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 30));
         titleLabel.setForeground(FG_LIGHT);
@@ -131,27 +137,31 @@ public class ClientGUI extends JFrame {
         
         panel.add(mainLayout); 
         
-        // === Listeners Connexion ===
+        //Actions à declencher si appuie du boutton creer client
         creerBtn.addActionListener(e -> {
             String nom = nomField.getText();
             double capital;
+            //On essaie de recuperer le solde initial rentré si il est au bon format
             try {
                 capital = Double.parseDouble(capitalField.getText());
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(this, "Capital invalide !");
                 return;
             }
-
+            //Creation du client
             client = new Client(nom, capital);
             JOptionPane.showMessageDialog(this, "Client créé : " + nom);
         });
 
+        //Actions du bouton se connecter
         connecterBtn.addActionListener(e -> {
+            //test que le client est bien crée
             if (client == null) {
                 JOptionPane.showMessageDialog(this, "Créez d'abord un client !");
                 return;
             }
 
+            //Appelle la méthode de connexion de la classe Client et récupère les actions disponibles
             try {
                 client.seConnecter("localhost", 5001);
                 client.getActionsDisponibles(); 
@@ -159,7 +169,8 @@ public class ClientGUI extends JFrame {
                 // Mettre à jour le bandeau avec le nom du client avant de montrer l'écran
                 clientNameLabel.setText("Client: " + client.getName());
                 updateSimulatorDisplay(); 
-                
+
+                //Lance MAJ des prix
                 client.lancerMiseAJourActions(this::updateSimulatorDisplay); 
                 
                 cardLayout.show(cardPanel, CARD_SIMULATEUR);
@@ -172,9 +183,9 @@ public class ClientGUI extends JFrame {
         return panel;
     }
     
-    /**
-     * Crée le panneau principal du simulateur (avec Bandeau et JTabbedPane)
-     */
+    
+     //Crée le panneau principal du simulateur (avec Bandeau et JTabbedPane)
+     
     private JPanel createSimulatorPanel() {
         JPanel simulatorPanel = new JPanel(new BorderLayout());
         simulatorPanel.setBackground(BG_DARK);
@@ -209,10 +220,10 @@ public class ClientGUI extends JFrame {
         tabbedPane.setBackground(BG_MEDIUM.darker());
         tabbedPane.setForeground(FG_LIGHT);
         
-        // Onglet 1: Marché et Graphique (Ancien CENTER + SOUTH)
+        // Onglet 1: Marché et Graphique 
         tabbedPane.addTab("Marché et Actions", createMarketPanel());
         
-        // Onglet 2: Portefeuille (Nouvelle refonte)
+        // Onglet 2: Portefeuille 
         tabbedPane.addTab("Mon Portefeuille", createPortefeuillePanel());
         
         simulatorPanel.add(tabbedPane, BorderLayout.CENTER);
@@ -220,19 +231,19 @@ public class ClientGUI extends JFrame {
         return simulatorPanel;
     }
     
-    /**
-     * Crée le panneau de l'onglet "Marché et Actions"
-     */
+    
+     //Crée le panneau de l'onglet "Marché et Actions"
+    
     private JPanel createMarketPanel() {
         JPanel marketPanel = new JPanel(new BorderLayout(10, 10));
         marketPanel.setBackground(BG_DARK);
         marketPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        // 1. Tableau des actions (LEFT - Occupant le centre du tab)
+        // 1. Tableau des actions 
         actionTableModel = new ActionTableModel();
         actionsTable = new JTable(actionTableModel);
         
-        // Style du JTable
+        // esthetique
         actionsTable.setFont(FONT_MONO);
         actionsTable.setBackground(BG_MEDIUM);
         actionsTable.setForeground(FG_LIGHT);
@@ -294,10 +305,8 @@ public class ClientGUI extends JFrame {
         
         return marketPanel;
     }
-    
-    /**
-     * Crée le panneau de l'onglet "Mon Portefeuille" (Refonte)
-     */
+     //Crée le panneau de l'onglet "Mon Portefeuille" 
+     
     private JPanel createPortefeuillePanel() {
         JPanel portefeuillePanel = new JPanel(new BorderLayout(10, 10));
         portefeuillePanel.setBackground(BG_DARK);
@@ -314,11 +323,11 @@ public class ClientGUI extends JFrame {
         portefeuilleTable.setSelectionBackground(BG_MEDIUM.brighter());
         portefeuilleTable.setRowHeight(25);
         
-        // Renderer pour centrer et colorer
+        // centrer et colorer
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
         rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
         
-        // Renderer spécifique pour la variation de prix (colonne 5)
+        // variation de prix (colonne 5)
         DefaultTableCellRenderer variationRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
@@ -326,6 +335,7 @@ public class ClientGUI extends JFrame {
                 label.setHorizontalAlignment(SwingConstants.RIGHT);
                 
                 double variation = (Double) value;
+                //Affichage en vert ou rouge selon une pente ascendante ou descendante du cours
                 if (variation > 0) {
                     label.setForeground(ACCENT_GREEN);
                     label.setText("+" + label.getText());
@@ -349,7 +359,7 @@ public class ClientGUI extends JFrame {
 
         portefeuillePanel.add(scrollPortefeuille, BorderLayout.CENTER);
         
-        // Vous pouvez ajouter ici un panneau pour l'historique des transactions si besoin
+        // ajouter ici un panneau pour l'historique des transactions A FAIRE
         
         return portefeuillePanel;
     }
@@ -359,9 +369,9 @@ public class ClientGUI extends JFrame {
     // LOGIQUE DE MISE À JOUR & D'INTERACTION
     // ==========================================================
     
-    /**
-     * Gère la déconnexion et le retour à l'écran de connexion.
-     */
+    
+     // Gère la déconnexion et le retour à l'écran de connexion.
+     
     private void handleDisconnection() {
         if (client != null) {
              // Supposons une méthode pour arrêter le thread dans Client.java
@@ -382,9 +392,9 @@ public class ClientGUI extends JFrame {
         JOptionPane.showMessageDialog(this, "Déconnexion réussie !");
     }
 
-    /**
-     * Gère la sélection d'une ligne dans le JTable des actions disponibles.
-     */
+    
+     //Gère la sélection d'une ligne dans le JTable des actions disponibles.
+     
     private void handleActionSelection(int selectedRow) {
         // Convertit l'index de vue en index de modèle (nécessaire si le tri est activé)
         int modelRow = actionsTable.convertRowIndexToModel(selectedRow);
@@ -414,7 +424,7 @@ public class ClientGUI extends JFrame {
             vendreBtn.removeActionListener(al);
         }
 
-        // Ajout des nouveaux listeners (logique Achat/Vente)
+        // Ajout des nouveaux listeners ( Achat/Vente)
         acheterBtn.addActionListener(e -> {
             boolean marketUpdateNeeded = client.demanderAchat(a, 1);
             if (marketUpdateNeeded) {
@@ -433,16 +443,18 @@ public class ClientGUI extends JFrame {
     }
 
 
-    /**
-     * Met à jour le bandeau, la table des actions et le portefeuille.
-     */
+    
+     //Met à jour le bandeau, la table des actions et le portefeuille.
+     
     public void updateSimulatorDisplay() {
+        //Impossible si pas de client
         if (client == null) return;
-        
+
+        //On recupère le stock et le portefeuille depuis Client
         Map<Action, Integer> stockMarche = client.getLastStockDisponible();
         Portefeuille portefeuille = client.getPortefeuille();
         
-        // 1. Mise à jour du Bandeau
+        // 1. Mise à jour du Bandeau avec les calculs de la classe Portefeuille
         double soldeDispo = portefeuille.getSoldeDispo();
         double valeurTotale = soldeDispo + portefeuille.getValeurPortefeuille();
         soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: %.2f €", soldeDispo, valeurTotale));
@@ -450,7 +462,7 @@ public class ClientGUI extends JFrame {
         // 2. Mise à jour de la Table des actions disponibles
         actionTableModel.setData(stockMarche);
         
-        // 3. Mise à jour de la Table du Portefeuille (Nouvelle)
+        // 3. Mise à jour de la Table du Portefeuille 
         portefeuilleTableModel.setData(portefeuille.getPortefeuille(), stockMarche);
         
         // 4. Mise à jour du graphique en temps réel (si une action est sélectionnée)
@@ -480,12 +492,10 @@ public class ClientGUI extends JFrame {
     }
     
     // ==========================================================
-    // MÉTHODES UTILITAIRES
+    // MÉTHODES ADDITIONNELLES
     // ==========================================================
 
-    /**
-     * Crée une bordure titrée stylisée.
-     */
+    //Bordure titrée stylée
     private Border createTitledBorder(String title, Color color) {
         return BorderFactory.createTitledBorder(
             BorderFactory.createLineBorder(color.darker(), 1), 
@@ -499,9 +509,9 @@ public class ClientGUI extends JFrame {
 }
 
 
-//==============================================================
-// CLASSE INTERNE 1 : Le panneau pour le graphique (Correction Couleur)
-//==============================================================
+//==================================================
+// CLASSE INTERNE 1 : Le panneau pour le graphique 
+//==================================================
 
 class GraphiquePrix extends JPanel {
     
@@ -509,6 +519,7 @@ class GraphiquePrix extends JPanel {
     private static final int MARGIN = 30; 
     private static final int POINT_SIZE = 6; 
 
+    //On garde seulement les 10 dernières valeurs
     public void setHistorique(List<Double> historique) {
         if(historique != null) {
             this.historique = historique.size() > 10 ? historique.subList(historique.size() - 10, historique.size()) : historique;
@@ -518,8 +529,9 @@ class GraphiquePrix extends JPanel {
         repaint();
     }
 
-    @Override
+    
     protected void paintComponent(Graphics g) {
+        //Héritage pour le constructeur
         super.paintComponent(g);
         
         Graphics2D g2d = (Graphics2D) g;
@@ -527,7 +539,8 @@ class GraphiquePrix extends JPanel {
         
         g2d.setColor(getBackground());
         g2d.fillRect(0, 0, getWidth(), getHeight());
-        
+
+        //On veut au moins 2 points
         if (historique == null || historique.size() < 2) {
             g2d.setColor(ClientGUI.FG_LIGHT);
             g2d.drawString("Sélectionnez une action ou en attente de données (min 2 points).", MARGIN, getHeight() / 2);
@@ -536,12 +549,14 @@ class GraphiquePrix extends JPanel {
 
         int width = getWidth();
         int height = getHeight();
+
         
         double minPrix = historique.stream().mapToDouble(d -> d).min().orElse(0.0);
         double maxPrix = historique.stream().mapToDouble(d -> d).max().orElse(0.0);
+        //Etendue des valeurs
         double range = maxPrix - minPrix;
         
-        // --- Grille de fond ---
+        // Grille de fond 
         g2d.setColor(ClientGUI.BG_DARK.brighter().brighter()); 
         int numGrids = 5;
         for (int i = 1; i < numGrids; i++) {
@@ -549,7 +564,7 @@ class GraphiquePrix extends JPanel {
             g2d.drawLine(MARGIN, yGrid, width - MARGIN, yGrid);
         }
         
-        // --- Axes et Labels ---
+        // Axes et Labels
         g2d.setColor(ClientGUI.FG_LIGHT); 
         g2d.drawLine(MARGIN, MARGIN, MARGIN, height - MARGIN); 
         g2d.drawLine(MARGIN, height - MARGIN, width - MARGIN, height - MARGIN); 
@@ -603,13 +618,14 @@ class GraphiquePrix extends JPanel {
 
 
 //==============================================================
-// CLASSE INTERNE 2 : Modèle de données pour le JTable des Actions disponibles
+// CLASSES INTERNES 2 et 3 : Modèle de données pour le JTable des Actions disponibles
 //==============================================================
 
 class ActionStock {
     public final Action action;
     public final int stock;
-    
+
+    //Constructeur
     public ActionStock(Action action, int stock) {
         this.action = action;
         this.stock = stock;
@@ -632,7 +648,8 @@ class ActionTableModel extends AbstractTableModel {
                 .collect(Collectors.toList());
         fireTableDataChanged();
     }
-    
+
+    //Vidr les données
     public void clearData() {
         this.actionStocks = new ArrayList<>();
         fireTableDataChanged();
@@ -645,29 +662,29 @@ class ActionTableModel extends AbstractTableModel {
         return null;
     }
 
-    @Override
+
     public int getRowCount() {
         return actionStocks.size();
     }
 
-    @Override
+ 
     public int getColumnCount() {
         return columnNames.length;
     }
 
-    @Override
+   
     public String getColumnName(int col) {
         return columnNames[col];
     }
     
-    @Override
+    //Obtenir le type d'objet qu'on manipule
     public Class<?> getColumnClass(int columnIndex) {
         if (columnIndex == 1) return Double.class; 
         if (columnIndex == 2) return Integer.class; 
         return String.class; 
     }
 
-    @Override
+    
     public Object getValueAt(int rowIndex, int columnIndex) {
         ActionStock as = actionStocks.get(rowIndex);
         
@@ -681,7 +698,7 @@ class ActionTableModel extends AbstractTableModel {
 }
 
 //==============================================================
-// CLASSE INTERNE 3 : Modèle de données pour le JTable du Portefeuille (Refonte)
+// CLASSE INTERNE 4 et 5 : Modèle de données pour le JTable du Portefeuille (Refonte)
 //==============================================================
 
 class ActionPortefeuille {
@@ -690,7 +707,8 @@ class ActionPortefeuille {
     public final double prixAchat;
     public final double valeurActuelle;
     public final double variation; // Variation % ou abs par rapport au prix d'achat
-    
+
+    //constructeur
     public ActionPortefeuille(Action action, int quantite, double prixAchat, double prixActuel) {
         this.action = action;
         this.quantite = quantite;
@@ -710,10 +728,10 @@ class PortefeuilleTableModel extends AbstractTableModel {
         this.actionsDetenues = new ArrayList<>(); 
     }
     
-    /**
-     * Met à jour les données du tableau avec la Map <Action, Quantité détenue> et les prix du marché.
-     * La Map stockMarche est utilisée pour récupérer l'objet Action le plus récent (avec les prix actuels).
-     */
+    
+     //Met à jour les données du tableau avec la Map <Action, Quantité détenue> et les prix du marché.
+     //La Map stockMarche est utilisée pour récupérer l'objet Action le plus récent (avec les prix actuels).
+     
     public void setData(Map<Action, Integer> portefeuilleDetenu, Map<Action, Integer> stockMarche) {
         this.actionsDetenues = portefeuilleDetenu.entrySet().stream()
                 .filter(entry -> entry.getValue() > 0)
@@ -721,14 +739,14 @@ class PortefeuilleTableModel extends AbstractTableModel {
                     Action actionDetenue = entry.getKey();
                     int quantite = entry.getValue();
                     
-                    // Trouver l'action correspondante dans le stock marché pour le prix ACTUEL
+                    // Trouver l'action correspondante dans le stock marché pour le prix actuel
                     Action actionMarche = stockMarche.keySet().stream()
                         .filter(a -> a.getName().equals(actionDetenue.getName()))
                         .findFirst()
-                        .orElse(actionDetenue); // Utilise l'ancienne si non trouvée (ne devrait pas arriver)
+                        .orElse(actionDetenue); // Utilise l'ancienne si non trouvée (normalment n'arrive pas)
                         
                     // Le prix d'achat de l'action détenue est stocké dans l'objet ActionPortefeuille original.
-                    // IMPORTANT : Je suppose ici que actionDetenue.getPrix() renvoie le prix d'achat initial.
+                    // on suppose ici que actionDetenue.getPrix() renvoie le prix d'achat initial.
                     // Si ce n'est pas le cas, vous devez stocker le prix d'achat initial dans Portefeuille.java.
                     // Pour le moment, je vais créer une variable hypothétique pour le prix d'achat.
                     // Pour que le calcul de variation fonctionne, chaque Action détenue doit connaitre son prix d'achat.
@@ -755,28 +773,27 @@ class PortefeuilleTableModel extends AbstractTableModel {
         fireTableDataChanged();
     }
 
-    @Override
+    
     public int getRowCount() {
         return actionsDetenues.size();
     }
 
-    @Override
+
     public int getColumnCount() {
         return columnNames.length;
     }
 
-    @Override
+  
     public String getColumnName(int col) {
         return columnNames[col];
     }
-    
-    @Override
+  
     public Class<?> getColumnClass(int columnIndex) {
         if (columnIndex >= 1) return Double.class; // Quantité, prix, valeur, variation sont des nombres
         return String.class; 
     }
 
-    @Override
+    
     public Object getValueAt(int rowIndex, int columnIndex) {
         ActionPortefeuille ap = actionsDetenues.get(rowIndex);
         
