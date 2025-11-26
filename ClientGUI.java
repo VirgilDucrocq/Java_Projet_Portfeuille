@@ -275,7 +275,7 @@ public class ClientGUI extends JFrame {
         
         // 2. Panneau de droite (Graphique + Interaction)
         JPanel eastPanel = new JPanel(new BorderLayout(10, 10));
-        eastPanel.setPreferredSize(new Dimension(450, 0));
+        eastPanel.setPreferredSize(new Dimension(550, 0));
         eastPanel.setBackground(BG_DARK);
 
         graphiquePanel = new GraphiquePrix();
@@ -284,9 +284,9 @@ public class ClientGUI extends JFrame {
         graphiquePanel.setBorder(createTitledBorder("HISTORIQUE (Sélectionnez une action)", FG_LIGHT));
         
         // Panneau d'interaction (Acheter/Vendre)
-        interactionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
+        interactionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         interactionPanel.setBackground(BG_MEDIUM.darker());
-        interactionPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        interactionPanel.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
         
         actionSelectionLabel = new JLabel("Sélectionnez une action pour interagir.");
         actionSelectionLabel.setForeground(FG_LIGHT);
