@@ -4,7 +4,7 @@ import java.util.stream.Collectors;
 
 public class Portefeuille implements Serializable{
     
-    // Attributs
+    // Attributs (client proprietaire, solde et actions détenues)
 
     private Client proprietaire;
     private double soldeDispo;
@@ -44,6 +44,7 @@ public class Portefeuille implements Serializable{
         return total;
     }
 
+    
     public double getValeurPortefeuille(){
         double valeurActions = 0.0;
         for (Map.Entry<Action, Integer> entree : portefeuille.entrySet()){
@@ -79,7 +80,7 @@ public class Portefeuille implements Serializable{
         int quantiteCourrante = portefeuille.get(action);
 
         if (quantite <= 0 || quantite > quantiteCourrante){
-            throw new IllegalArgumentException("Quantité invalide (<= 0 ou plus granqe que la capacité détenue)");
+            throw new IllegalArgumentException("Quantité invalide (<= 0 ou plus grande que la capacité détenue)");
         }
 
         portefeuille.put(action, quantiteCourrante - quantite );
