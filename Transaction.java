@@ -4,7 +4,7 @@ import java.net.*;
 import java.util.*;
 
 
-
+//Serializable car c'est ce qu'on va majoritairement s'envoyer à travers le reseau 
 public class Transaction implements Serializable{
    
     
