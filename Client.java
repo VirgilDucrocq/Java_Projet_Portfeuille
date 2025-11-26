@@ -46,30 +46,6 @@ public class Client implements Serializable {
     }
 
 
-    //On ne ToString pas le portefeuille car il ne connait pas les prix du marché
-    //Méthode pour pouvoir obtenir les valeurs du marché (depuis client) et les repertorier
-    //Selon les actions du portefeuille (du client aussi donc) 
-    public String getPortefeuilleString() {
-        // Récupère la liste des actions disponibles (prix du marché)
-        List<Action> actionsMarche = this.getLastActionsDisponibles(); 
-    
-        // Vérifie si le portefeuille du client est vide
-        if (this.portefeuille.getPortefeuille().isEmpty()) {
-            return "Solde disponible: " + String.format("%.2f €", this.portefeuille.getSoldeDispo());
-        }// (Si oui affichage du solde seulement du coup)
-
-        // Vérifie si les prix du marché sont disponibles
-        if (actionsMarche.isEmpty()) {
-            // Non connecté ou pas d'actions sur le marché (normalement jamais sauf cas limite)
-            return "Pas d'actions disponibles, Connectez vous !";
-
-        } else {
-            //Cas où tout est good
-            return this.portefeuille.toMarketValueString(actionsMarche); 
-        }
-    }
-
-
     //recuperer le stock du serveur
     public synchronized void getActionsDisponibles() { // Modifier le nom en getStockDisponible() serait plus clair
         try {
