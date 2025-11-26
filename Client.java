@@ -43,17 +43,26 @@ public class Client implements Serializable {
         return this.stockDisponible;
     }
 
-    //recuperer les actions dans la variable apres l'avoir remplie 
+    //expose la liste des actions dispos sur le marché à partir du dernier stock dispo
     public List<Action> getLastActionsDisponibles() {
         // FIX: Retourne la List<Action> à partir des clés de la Map stockDisponible
         return new ArrayList<>(this.stockDisponible.keySet()); 
     }
 
 
-    //recuperer le stock du serveur
+    //Recherche le nouveau prix d'une action à partir d'une ancienne reference
+    // private car utilitaire interne à Client
+    private Action getActionMarcheActuel(Action actionReference) {
+        return this.stockDisponible.keySet().stream()
+            .filter(a -> a.getName().equals(actionReference.getName()))
+            .findFirst()
+            .orElse(actionReference); // Retourne la référence si non trouvée
+    }
+
+    //Maj des données (stockDisponible) reçu par socket par le serveur
     //Suppression du warning on sait bien quel objet sera envoyé 
     @SuppressWarnings("unchecked")
-    public synchronized void getActionsDisponibles() { // Modifier le nom en getStockDisponible() serait plus clair
+    public synchronized void synchroniserStockMarche() { // Modifier le nom en getStockDisponible() serait plus clair
         try {
             out.writeObject("GET_ACTIONS");
             out.flush();
@@ -103,7 +112,7 @@ public class Client implements Serializable {
 
                     // Synchronisation pour s'assurer qu'un seul thread accède aux flux
                     synchronized (Client.this) {
-                        getActionsDisponibles(); 
+                        synchroniserStockMarche(); 
                     }
                     
                     if (callback != null) {
@@ -129,20 +138,21 @@ public class Client implements Serializable {
 
     //envoie dune demande d'achat au serveur 
     public boolean demanderAchat(Action action, int quantite){
-        double cout = action.getPrix() * quantite;
+        Action actionActuelle = getActionMarcheActuel(action); 
+        double cout = actionActuelle.getPrix() * quantite;
         
         if (portefeuille.getSoldeDispo() < cout) {
             System.out.println("Achat refusé côté client : solde insuffisant.");
             return false;
         }
         
-        Transaction demande = new Transaction(this.getName(), action, quantite, TypeTransaction.ACHAT, LocalDate.now());
+        Transaction demande = new Transaction(this.getName(), actionActuelle, quantite, TypeTransaction.ACHAT, LocalDate.now());
         Transaction resultat = envoyerTransaction(demande);
 
         if (resultat != null && resultat.estAcceptee()) { 
-            portefeuille.ajouterAction(action, quantite);
+            portefeuille.ajouterAction(actionActuelle, quantite);
             portefeuille.setSoldeDispo(portefeuille.getSoldeDispo() - cout);
-            System.out.println("Achat validé : " + quantite + " x " + action.getName() + " achetés.");
+            System.out.println("Achat validé : " + quantite + " x " + actionActuelle.getName() + " achetés au prix de " + String.format("%.2f", actionActuelle.getPrix()) + "€/unité.");
             return true; // Succès: stock marché a diminué
         } else {
             System.out.println("Achat refusé côté serveur : stock insuffisant.");
@@ -161,14 +171,18 @@ public class Client implements Serializable {
             return false; // Échec: transaction n'est PAS envoyée, le stock serveur NE DOIT PAS être affecté
         }
 
-        Transaction demande = new Transaction(this.getName(), action, quantite, TypeTransaction.VENTE, LocalDate.now());
+        // Utilisation de la méthode utilitaire pour obtenir le prix marché
+        Action actionActuelle = getActionMarcheActuel(action); 
+        double prixDeVente = actionActuelle.getPrix();
+
+        Transaction demande = new Transaction(this.getName(), actionActuelle, quantite, TypeTransaction.VENTE, LocalDate.now());
         Transaction resultat = envoyerTransaction(demande);
 
         if (resultat != null && resultat.estAcceptee()) { 
             // Le serveur valide toujours une vente dans votre logique Serveur.java
             portefeuille.retirerAction(action, quantite);
-            portefeuille.setSoldeDispo(portefeuille.getSoldeDispo() + action.getPrix() * quantite);
-            System.out.println("Vente validée : " + quantite + " x " + action.getName() + " vendus.");
+            portefeuille.setSoldeDispo(portefeuille.getSoldeDispo() + prixDeVente * quantite);
+            System.out.println("Vente validée : " + quantite + " x " + actionActuelle.getName() + " vendus à " + String.format("%.2f", prixDeVente) + "€/unité.");
             return true; // Succès: stock marché a augmenté
         } else {
             System.out.println("Vente refusée côté serveur.");
