@@ -6,11 +6,6 @@ import java.util.*;
 
 //Serializable car c'est ce qu'on va majoritairement s'envoyer à travers le reseau 
 public class Transaction implements Serializable{
-
-   public enum TypeTransaction {
-        ACHAT,
-        VENTE
-    }
     
     //Attributs
     private static final long serialVersionUID = 1L;
