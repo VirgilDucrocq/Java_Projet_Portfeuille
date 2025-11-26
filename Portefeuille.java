@@ -6,16 +6,20 @@ public class Portefeuille implements Serializable{
     
     // Attributs (client proprietaire, solde et actions détenues)
 
+    //Protection contre la corruption à la deserialisation
+    private static final long serialVersionUID = 1L;
     private Client proprietaire;
     private double soldeDispo;
-    private Map<Action, Integer> portefeuille; // Action + Quantité
+    //On n'envoie pas de map
+    transient private Map<Action, Integer> portefeuille; // Action + Quantité
 
     // Constructeur
-    public Portefeuille(Client proprietaire, double soldeInitial){
+    // On initialise le proprietaire en dehors comme c'est lui qui va 
+    // Creer le portefeuille on va avoir un potentiel this-escape
+    public Portefeuille(double soldeInitial){
         if (soldeInitial < 0) {
             throw new IllegalArgumentException("Le solde initial doit être positif");
         }
-        this.proprietaire = proprietaire;
         this.soldeDispo = soldeInitial;
         this.portefeuille = new HashMap<>();
     }
@@ -57,6 +61,11 @@ public class Portefeuille implements Serializable{
 
 
     // Setter
+
+    public void setProprietaire(Client client){
+        this.proprietaire = client;
+    }
+
     public void setSoldeDispo(double nvSolde){
         this.soldeDispo = nvSolde;
     }
