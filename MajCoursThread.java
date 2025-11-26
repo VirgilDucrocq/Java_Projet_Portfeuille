@@ -2,13 +2,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+//Classe qui va gérer le thread de mise à jour des cours -> doit obligatoirement implémenter runnable donc
 public class MajCoursThread implements Runnable {
 
     private Map<Action, Integer> stockGlobal; 
     private List<Action> actions;              // Liste des actions
     private int intervalMillis;                // temps entre maj en ms
-    private Random random;
+    private Random random;                     // Besoin d'aléatoire
 
+    //Constructeur
     public MajCoursThread(List<Action> actions, Map<Action, Integer> stockGlobal, int intervalMillis){
         this.actions = actions;
         this.stockGlobal = stockGlobal;
@@ -16,6 +18,7 @@ public class MajCoursThread implements Runnable {
         this.random = new Random();
     }
 
+    //Calcul du prix à l'aide du modèle
     public double calculNouveauPrix(double S, double mu, double sigma, double dtSeconds){
     double dt = dtSeconds;
 
@@ -27,8 +30,9 @@ public class MajCoursThread implements Runnable {
     return nouveauPrix;
 }
 
+    //run pour le thread 
     public void run(){
-        // Conversion de l'intervalle de temps en secondes (dt)
+        // Conversion de l'intervalle de temps en secondes (dt) 
         final double SECONDS_PER_YEAR = 365.25;
         final double dtAnnee = (intervalMillis / 1000.0) / SECONDS_PER_YEAR;
 
