@@ -14,8 +14,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 
+
 public class ClientGUI extends JFrame {
 
+    //Herite d'une classe serializable
+    private static final long serialVersionUID = 1L;
     private Client client;
 
     // Constantes CardLayout
@@ -56,6 +59,8 @@ public class ClientGUI extends JFrame {
     private static final Font FONT_BAND = new Font("Arial", Font.BOLD, 20); // Pour le bandeau supérieur
 
     //Constructeur
+    @SuppressWarnings("this-escape")
+    //Le warning vient du setTitle qui est inoffensif 
     public ClientGUI() {
         //Titre
         setTitle("Client Boursier - Marchés en Temps Réel");
@@ -150,6 +155,7 @@ public class ClientGUI extends JFrame {
             }
             //Creation du client
             client = new Client(nom, capital);
+            client.getPortefeuille().setProprietaire(client);
             JOptionPane.showMessageDialog(this, "Client créé : " + nom);
         });
 
@@ -506,16 +512,19 @@ public class ClientGUI extends JFrame {
         );
     }
     
-}
 
 
 //==================================================
 // CLASSE INTERNE 1 : Le panneau pour le graphique 
 //==================================================
 
-class GraphiquePrix extends JPanel {
+// Rendu 'static' pour couper le lien implicite avec l'instance ClientGUI (qui herite d'une classe serializable)
+// Ceci évite des avertissements de sérialisation + solidifie la securité 
+// (On ne gère pas vraiment la mémoire on a surtout voulu éviter les warnings ici)
+static class GraphiquePrix extends JPanel {
     
-    private List<Double> historique;
+    private static final long serialVersionUID = 1L;
+    transient private List<Double> historique;
     private static final int MARGIN = 30; 
     private static final int POINT_SIZE = 6; 
 
@@ -621,7 +630,7 @@ class GraphiquePrix extends JPanel {
 // CLASSES INTERNES 2 et 3 : Modèle de données pour le JTable des Actions disponibles
 //==============================================================
 
-class ActionStock {
+static class ActionStock {
     public final Action action;
     public final int stock;
 
@@ -632,9 +641,13 @@ class ActionStock {
     }
 }
 
-class ActionTableModel extends AbstractTableModel {
-    
-    private List<ActionStock> actionStocks;
+// Rendu 'static' pour couper le lien implicite avec l'instance ClientGUI (qui herite d'une classe serializable)
+// Ceci évite des avertissements de sérialisation + solidifie la securité 
+// (On ne gère pas vraiment la mémoire on a surtout voulu éviter les warnings ici)
+static class ActionTableModel extends AbstractTableModel {
+
+    private static final long serialVersionUID = 1L;
+    transient private List<ActionStock> actionStocks;
     private final String[] columnNames = {"Action", "Prix (€)", "Stock Marché"};
     
     public ActionTableModel() {
@@ -701,7 +714,7 @@ class ActionTableModel extends AbstractTableModel {
 // CLASSE INTERNE 4 et 5 : Modèle de données pour le JTable du Portefeuille (Refonte)
 //==============================================================
 
-class ActionPortefeuille {
+static class ActionPortefeuille {
     public final Action action;
     public final int quantite;
     public final double prixAchat;
@@ -719,9 +732,13 @@ class ActionPortefeuille {
     }
 }
 
-class PortefeuilleTableModel extends AbstractTableModel {
+// Rendu 'static' pour couper le lien implicite avec l'instance ClientGUI (qui herite d'une classe serializable)
+// Ceci évite des avertissements de sérialisation + solidifie la securité 
+// (On ne gère pas vraiment la mémoire on a surtout voulu éviter les warnings ici)
+static class PortefeuilleTableModel extends AbstractTableModel {
     
-    private List<ActionPortefeuille> actionsDetenues;
+    private static final long serialVersionUID = 1L;
+    transient private List<ActionPortefeuille> actionsDetenues;
     private final String[] columnNames = {"Action", "Quantité", "Prix Achat (€)", "Prix Actuel (€)", "Valeur Totale (€)", "Variation (%)"};
     
     public PortefeuilleTableModel() {
@@ -807,4 +824,6 @@ class PortefeuilleTableModel extends AbstractTableModel {
             default: return null;
         }
     }
+}
+
 }
