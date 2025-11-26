@@ -9,6 +9,8 @@ import java.util.Objects;
 //Serializable car on va avoir besoin de les transférer via réseau (actions inlues dans les transactions)
 public class Action implements Serializable {
     
+    //Protection contre la corruption à la deserialisation
+    private static final long serialVersionUID = 1L;
     private String name;
     private double prix;
     private ArrayList<Double> historiqueValeurs;
