@@ -69,56 +69,8 @@ public class Portefeuille implements Serializable{
         portefeuille.put(action, portefeuille.containsKey(action) ? portefeuille.get(action) + quantite : quantite);
     }
 
-    public String toMarketValueString(List<Action> actionsMarche) {
     
-        Map<String, Double> prixMarche = new HashMap<>();
-        for (Action a : actionsMarche) {
-            prixMarche.put(a.getName(), a.getPrix());
-        }
 
-        StringBuilder sb = new StringBuilder();
-        double valeurTotaleActions = 0.0;
-    
-        // --- En-tête Général ---
-        sb.append(String.format("╔═══════════════════════════════════════════════════╗\n"));
-        sb.append(String.format("║ PORT. DE %s | SOLDE DISPO: %.2f €\n", 
-                                proprietaire.getName().toUpperCase(), soldeDispo));
-        sb.append(String.format("╠═══════════════════════════════════════════════════╣\n"));
-
-        // --- En-tête des Colonnes ---
-        sb.append(String.format("║ %-10s | %-5s | %-8s | %-8s | %-10s ║\n", 
-                                "ACTION", "QTÉ", "PRIX ACHAT", "PRIX ACTUEL", "VALEUR ACT."));
-        sb.append(String.format("╠═══════════════════════════════════════════════════╣\n"));
-
-        // --- Lignes de Données ---
-        for (Map.Entry<Action, Integer> entry : portefeuille.entrySet()) {
-            Action actionDetenue = entry.getKey();
-            Integer quantite = entry.getValue();
-            String nomAction = actionDetenue.getName();
-        
-            double prixActuel = prixMarche.getOrDefault(nomAction, actionDetenue.getPrix()); 
-            double prixAchat = actionDetenue.getPrix();
-            double valeurActuelle = prixActuel * quantite;
-            valeurTotaleActions += valeurActuelle;
-
-            // Ligne de données formatée
-            sb.append(String.format("║ %-10s | %-5d | %-8.2f € | %-8.2f € | %-9.2f € ║\n", 
-                                                nomAction, 
-                                                quantite, 
-                                                prixAchat, 
-                                                prixActuel, 
-                                                valeurActuelle));
-        }
-    
-        double valeurTotale = soldeDispo + valeurTotaleActions;
-    
-        // --- Pied de Page ---
-        sb.append(String.format("╠═══════════════════════════════════════════════════╣\n"));
-        sb.append(String.format("║ VALEUR TOTALE (Solde + Actions) : %.2f €", valeurTotale));
-        sb.append(String.format("\n╚═══════════════════════════════════════════════════╝"));
-
-        return sb.toString();
-    }
 
     public synchronized void retirerAction(Action action, int quantite){
         if (!portefeuille.containsKey(action)){
