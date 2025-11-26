@@ -91,7 +91,5 @@ public class Portefeuille implements Serializable{
         }
     }
 
-    public String toString(){
-        return "Solde disponible: " + this.getSoldeDispo() + "\nValeur totale des actions: " + this.getValeurPortefeuille() + "\n\nActions: " + portefeuille.toString() + "\n" ;
-    }
+    
 }
