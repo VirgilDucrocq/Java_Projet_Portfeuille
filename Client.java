@@ -8,21 +8,25 @@ import javax.swing.SwingUtilities;
 //Serializable car les transactions comprennent un client qui va donc etre envoyé par socket
 public class Client implements Serializable {
 
-    
+    //Protection contre la corruption à la deserialisation
+    private static final long serialVersionUID = 1L;
     private String name;
-    private Socket socket;
+    // Transient = ne doit pas être serialisé
+    transient private Socket socket;
     private Portefeuille portefeuille;
     //Ici l'écoute et l'envoi sont geres en interne de la classe 
-    private ObjectOutputStream out;
-    private ObjectInputStream in;
+    transient private ObjectOutputStream out;
+    transient private ObjectInputStream in;
     //Va servir a recuperer le stock dispo envoye par le serveur 
-    private Map<Action, Integer> stockDisponible = Collections.emptyMap();
+    transient private Map<Action, Integer> stockDisponible = Collections.emptyMap();
 
 
 
     public Client(String name, double soldeInitial){
         this.name = name;
-        this.portefeuille = new Portefeuille(this, soldeInitial);
+        this.portefeuille = new Portefeuille(soldeInitial);
+        //On rattache le portefeuille au client en dehors du constructeur pour eviter 
+        //les fuites
     }
 
     //Getters
@@ -47,6 +51,8 @@ public class Client implements Serializable {
 
 
     //recuperer le stock du serveur
+    //Suppression du warning on sait bien quel objet sera envoyé 
+    @SuppressWarnings("unchecked")
     public synchronized void getActionsDisponibles() { // Modifier le nom en getStockDisponible() serait plus clair
         try {
             out.writeObject("GET_ACTIONS");
