@@ -170,7 +170,7 @@ public class ClientGUI extends JFrame {
             //Appelle la méthode de connexion de la classe Client et récupère les actions disponibles
             try {
                 client.seConnecter("localhost", 5001);
-                client.getActionsDisponibles(); 
+                client.synchroniserStockMarche(); 
                 
                 // Mettre à jour le bandeau avec le nom du client avant de montrer l'écran
                 clientNameLabel.setText("Client: " + client.getName());
@@ -434,7 +434,7 @@ public class ClientGUI extends JFrame {
         acheterBtn.addActionListener(e -> {
             boolean marketUpdateNeeded = client.demanderAchat(a, 1);
             if (marketUpdateNeeded) {
-                client.getActionsDisponibles(); 
+                client.synchroniserStockMarche(); 
             }
             updateSimulatorDisplay(); 
         });
@@ -442,7 +442,7 @@ public class ClientGUI extends JFrame {
         vendreBtn.addActionListener(e -> {
             boolean marketUpdateNeeded = client.demanderVente(a, 1);
             if (marketUpdateNeeded) {
-                client.getActionsDisponibles(); 
+                client.synchroniserStockMarche(); 
             }
             updateSimulatorDisplay(); 
         });
