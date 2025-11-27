@@ -72,9 +72,8 @@ public class Transaction implements Serializable{
     //Méthode
 
     public String toString(){
-        return this.clientNom + " " + this.typeTransaction + " " + quantite + " x " + action.getName() + " à " + action.getPrix();
+        return this.clientNom + " " + this.typeTransaction + " " + quantite + " x " + action.getNom() + " à " + action.getPrix();
     }
 
     
 }
- 
