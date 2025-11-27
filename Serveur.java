@@ -6,7 +6,7 @@ public class Serveur{
 
     //parametres, connexion reseau géré directement dans cette classe
     private int port;
-    private ServerSocket serverSocket;
+    private ServerSocket socketServeur;
     private Map<Action, Integer> stockGlobal; // Actions + Quantités du marché
     private List<ThreadClientServeur> clients = new ArrayList<>(); //Clients connectés
 
@@ -17,7 +17,7 @@ public class Serveur{
     }
 
     //getters
-    public synchronized Map<Action, Integer> getStockGlobal() {
+    public synchronized Map<Action, Integer> getStockGlobal(){
         return this.stockGlobal;
     }
 
@@ -25,7 +25,7 @@ public class Serveur{
         return this.port;
     }
     
-    public synchronized List<Action> getActions() {
+    public synchronized List<Action> getActions(){
     // renvoyer une nouvelle liste pour éviter les modifications externes
     // C'est juste une mesure de sécurité ici comme on va beaucoup toucher aux actions
         return new ArrayList<>(stockGlobal.keySet());
@@ -33,8 +33,8 @@ public class Serveur{
 
     //Fonction principale de lancement avec un thread d'écoute à l'affut de la connexion de clients
     public void demarrer(){
-        try {
-            serverSocket = new ServerSocket(port);
+        try{
+            socketServeur = new ServerSocket(port);
             //Verification du lancement dans le terminal 
             System.out.println("Serveur démarré sur le port " + port);
 
@@ -43,7 +43,7 @@ public class Serveur{
                 //de gestion de la connexion client-serveur pour le nouveau client
                 //On pourrait limiter l'afflux de client en fixant le max de client conectés (longueur de la liste)
                 //Afin d'éviter les attaques (DoS) mais ici pas besoin vu qu'on reste en local
-                Socket socketClient = serverSocket.accept();
+                Socket socketClient = socketServeur.accept();
                 ThreadClientServeur tcs = new ThreadClientServeur(socketClient, this);
                 clients.add(tcs);
                 new Thread(tcs).start();
@@ -61,14 +61,19 @@ public class Serveur{
         int qte = t.getQuantite();
 
         if (t.getTypeTransaction() == TypeTransaction.ACHAT){
-            if (stockGlobal.get(action) >= qte){
-                stockGlobal.put(action, stockGlobal.get(action) - qte);
+            // Assurez-vous que l'action est bien dans la map avant d'appeler get()
+            Integer stockActuel = stockGlobal.getOrDefault(action, 0); 
+            
+            if (stockActuel >= qte){
+                stockGlobal.put(action, stockActuel - qte);
                 t.setValide(true);
             } else{
                 t.setValide(false);
             }
         } else{ 
-            stockGlobal.put(action, stockGlobal.get(action) + qte);
+            // Vente: on ajoute au stock, toujours valide
+            Integer stockActuel = stockGlobal.getOrDefault(action, 0); 
+            stockGlobal.put(action, stockActuel + qte);
             t.setValide(true);
         }
     }
@@ -77,7 +82,7 @@ public class Serveur{
     // Main du Serveur (création à la main en dur des actions disponibles (pourrait être mis dans une procédure
     // avec une interface graphique style panneau de contrôle serveur)
     // Puis creéation d'une instance de serveur qui va appeler sa fonction démarrer et lancer le thread de mise à jour des prix
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException, InterruptedException{
         // Création des actions
         Action apple = new Action("Apple", 100, ActionType.VALEUR_TECH_CLASSIQUE);
         Action google = new Action("Google", 200, ActionType.INDICE_STABLE);
@@ -90,7 +95,7 @@ public class Serveur{
 
         // Création et démarrage du serveur
         Serveur serveur = new Serveur(5001, stockInitial);
-        new Thread(() -> {serveur.demarrer();}).start();
+        new Thread(() ->{serveur.demarrer();}).start();
         Thread.sleep(500); // laisser le serveur démarrer
  
 
@@ -98,7 +103,4 @@ public class Serveur{
         MajCoursThread majCours = new MajCoursThread(actions, stockInitial, 2000);
         new Thread(majCours).start();
     }
-
-
 }
- 
