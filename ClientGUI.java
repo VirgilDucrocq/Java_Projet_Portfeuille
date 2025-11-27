@@ -173,7 +173,7 @@ public class ClientGUI extends JFrame {
                 client.synchroniserStockMarche(); 
                 
                 // Mettre à jour le bandeau avec le nom du client avant de montrer l'écran
-                clientNameLabel.setText("Client: " + client.getName());
+                clientNameLabel.setText("Client: " + client.getNom());
                 updateSimulatorDisplay(); 
 
                 //Lance MAJ des prix
@@ -413,11 +413,11 @@ public class ClientGUI extends JFrame {
         // 1. Mise à jour du graphique
         actionGraphiqueCourante = a;
         graphiquePanel.setHistorique(a.getHistoriqueValeurs());
-        graphiquePanel.setBorder(createTitledBorder("HISTORIQUE DE " + a.getName(), FG_LIGHT));
+        graphiquePanel.setBorder(createTitledBorder("HISTORIQUE DE " + a.getNom(), FG_LIGHT));
         
         // 2. Mise à jour du panneau d'interaction
         actionSelectionLabel.setText(String.format("Action: %s (%.2f €) | Stock Marché: %d", 
-                                                    a.getName(), a.getPrix(), as.stock));
+                                                    a.getNom(), a.getPrix(), as.stock));
         
         acheterBtn.setEnabled(as.stock > 0); 
         vendreBtn.setEnabled(true);
@@ -474,19 +474,19 @@ public class ClientGUI extends JFrame {
         // 4. Mise à jour du graphique en temps réel (si une action est sélectionnée)
         if (actionGraphiqueCourante != null) {
             Action updatedAction = stockMarche.keySet().stream()
-                .filter(a -> a.getName().equals(actionGraphiqueCourante.getName()))
+                .filter(a -> a.getNom().equals(actionGraphiqueCourante.getNom()))
                 .findFirst()
                 .orElse(null);
 
             if (updatedAction != null) {
                 actionGraphiqueCourante = updatedAction;
                 graphiquePanel.setHistorique(actionGraphiqueCourante.getHistoriqueValeurs());
-                graphiquePanel.setBorder(createTitledBorder("HISTORIQUE DE " + actionGraphiqueCourante.getName(), FG_LIGHT));
+                graphiquePanel.setBorder(createTitledBorder("HISTORIQUE DE " + actionGraphiqueCourante.getNom(), FG_LIGHT));
                 
                  int currentStock = stockMarche.getOrDefault(updatedAction, 0);
 
                 actionSelectionLabel.setText(String.format("Action: %s (%.2f €) | Stock Marché: %d", 
-                                                            actionGraphiqueCourante.getName(), 
+                                                            actionGraphiqueCourante.getNom(), 
                                                             actionGraphiqueCourante.getPrix(),
                                                             currentStock));
                 acheterBtn.setEnabled(currentStock > 0);
@@ -657,7 +657,7 @@ static class ActionTableModel extends AbstractTableModel {
     public void setData(Map<Action, Integer> stockMarche) {
         this.actionStocks = stockMarche.entrySet().stream()
                 .map(entry -> new ActionStock(entry.getKey(), entry.getValue()))
-                .sorted(Comparator.comparing(as -> as.action.getName()))
+                .sorted(Comparator.comparing(as -> as.action.getNom()))
                 .collect(Collectors.toList());
         fireTableDataChanged();
     }
@@ -702,7 +702,7 @@ static class ActionTableModel extends AbstractTableModel {
         ActionStock as = actionStocks.get(rowIndex);
         
         switch (columnIndex) {
-            case 0: return as.action.getName();
+            case 0: return as.action.getNom();
             case 1: return as.action.getPrix();
             case 2: return as.stock; 
             default: return null;
@@ -758,7 +758,7 @@ static class PortefeuilleTableModel extends AbstractTableModel {
                     
                     // Trouver l'action correspondante dans le stock marché pour le prix actuel
                     Action actionMarche = stockMarche.keySet().stream()
-                        .filter(a -> a.getName().equals(actionDetenue.getName()))
+                        .filter(a -> a.getNom().equals(actionDetenue.getNom()))
                         .findFirst()
                         .orElse(actionDetenue); // Utilise l'ancienne si non trouvée (normalment n'arrive pas)
                         
@@ -780,7 +780,7 @@ static class PortefeuilleTableModel extends AbstractTableModel {
                         actionMarche.getPrix()
                     );
                 })
-                .sorted(Comparator.comparing(ap -> ap.action.getName()))
+                .sorted(Comparator.comparing(ap -> ap.action.getNom()))
                 .collect(Collectors.toList());
         fireTableDataChanged();
     }
@@ -815,7 +815,7 @@ static class PortefeuilleTableModel extends AbstractTableModel {
         ActionPortefeuille ap = actionsDetenues.get(rowIndex);
         
         switch (columnIndex) {
-            case 0: return ap.action.getName();
+            case 0: return ap.action.getNom();
             case 1: return ap.quantite;
             case 2: return ap.prixAchat;
             case 3: return ap.action.getPrix();
