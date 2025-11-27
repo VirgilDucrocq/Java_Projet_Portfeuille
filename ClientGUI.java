@@ -457,7 +457,7 @@ public class ClientGUI extends JFrame {
         if (client == null) return;
 
         //On recupère le stock et le portefeuille depuis Client
-        Map<Action, Integer> stockMarche = client.getLastStockDisponible();
+        Map<Action, Integer> stockMarche = client.getDernierStockDisponible();
         Portefeuille portefeuille = client.getPortefeuille();
         
         // 1. Mise à jour du Bandeau avec les calculs de la classe Portefeuille
