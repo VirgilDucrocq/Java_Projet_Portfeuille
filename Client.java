@@ -39,14 +39,8 @@ public class Client implements Serializable{
     }
 
     //recuperer le dernier stock dispo
-    public Map<Action, Integer> getLastStockDisponible(){
+    public Map<Action, Integer> getDernierStockDisponible(){
         return this.stockDisponible;
-    }
-
-    //expose la liste des actions dispos sur le marché à partir du dernier stock dispo
-    public List<Action> getLastActionsDisponibles(){
-        // FIX: Retourne la List<Action> à partir des clés de la Map stockDisponible
-        return new ArrayList<>(this.stockDisponible.keySet()); 
     }
 
 
