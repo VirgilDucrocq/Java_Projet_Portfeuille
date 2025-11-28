@@ -96,11 +96,10 @@ public class Serveur{
         // Création et démarrage du serveur
         Serveur serveur = new Serveur(5001, stockInitial);
         new Thread(() ->{serveur.demarrer();}).start();
-        Thread.sleep(500); // laisser le serveur démarrer
- 
+        Thread.sleep(500);
 
         // Lancement du thread de mise à jour des prix (toutes les 20 sec)
-        MajCoursThread majCours = new MajCoursThread(actions, stockInitial, 2000);
+        MajCoursThread majCours = new MajCoursThread(serveur, 2000); 
         new Thread(majCours).start();
     }
 }
