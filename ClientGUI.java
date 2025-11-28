@@ -45,7 +45,7 @@ public class ClientGUI extends JFrame {
     private JLabel actionSelectionLabel;
     private JButton acheterBtn;
     private JButton vendreBtn;
-
+    private JButton connecterMarcheBtn;
 
     // COULEURS et STYLES POUR L'ESTHÉTIQUE
     public static final Color BG_DARK = new Color(30, 30, 30); // Gris très foncé
@@ -86,6 +86,15 @@ public class ClientGUI extends JFrame {
         // Afficher l'écran de connexion au démarrage
         cardLayout.show(cardPanel, CARD_CONNEXION);
 
+        addWindowListener(new java.awt.event.WindowAdapter(){
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                if (client != null) {
+                    client.sauvegarderClient(); // <-- ET ICI
+                }
+                // Ferme l'application
+                System.exit(0);
+            }
+        });
         setVisible(true);
     }
     
@@ -120,15 +129,14 @@ public class ClientGUI extends JFrame {
         capitalField.setForeground(ACCENT_GREEN);
 
         //Bouttons
-        JButton creerBtn = new JButton("Créer Client");
-        JButton connecterBtn = new JButton("Se Connecter au Marché");
+        JButton initierBtn = new JButton("Créer/Charger Client");
+
 
         content.add(nomLabel);
         content.add(nomField);
         content.add(capitalLabel);
         content.add(capitalField);
-        content.add(creerBtn);
-        content.add(connecterBtn);
+        content.add(initierBtn);
         
         JLabel titleLabel = new JLabel("SIMULATEUR DE MARCHÉ BOURSIER", SwingConstants.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 30));
@@ -143,53 +151,57 @@ public class ClientGUI extends JFrame {
         panel.add(mainLayout); 
         
         //Actions à declencher si appuie du boutton creer client
-        creerBtn.addActionListener(e -> {
-            String nom = nomField.getText();
-            double capital;
-            //On essaie de recuperer le solde initial rentré si il est au bon format
-            try {
-                capital = Double.parseDouble(capitalField.getText());
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Capital invalide !");
-                return;
-            }
-            //Creation du client
-            client = new Client(nom, capital);
-            client.getPortefeuille().setProprietaire(client);
-            JOptionPane.showMessageDialog(this, "Client créé : " + nom);
-        });
+        // 1. Charger/Créer le client (LOCAL)
+        initierBtn.addActionListener(e -> handleInitialization(nomField.getText(), capitalField.getText()));
 
-        //Actions du bouton se connecter
-        connecterBtn.addActionListener(e -> {
-            //test que le client est bien crée
-            if (client == null) {
-                JOptionPane.showMessageDialog(this, "Créez d'abord un client !");
-                return;
-            }
-
-            //Appelle la méthode de connexion de la classe Client et récupère les actions disponibles
-            try {
-                client.seConnecter("localhost", 5001);
-                client.synchroniserStockMarche(); 
-                
-                // Mettre à jour le bandeau avec le nom du client avant de montrer l'écran
-                clientNameLabel.setText("Client: " + client.getNom());
-                updateSimulatorDisplay(); 
-
-                //Lance MAJ des prix
-                client.lancerMiseAJourActions(this::updateSimulatorDisplay); 
-                
-                cardLayout.show(cardPanel, CARD_SIMULATEUR);
-                
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Erreur de connexion : " + ex.getMessage());
-            }
-        });
         
         return panel;
+        }
+    
+
+    //Gère le chargement local du client (création ou chargement depuis fichier) et passe à l'écran du simulateur sans connexion réseau
+    private void handleInitialization(String nom, String capitalStr) {
+        if (nom.trim().isEmpty()) {
+        JOptionPane.showMessageDialog(this, "Veuillez entrer un nom de client.");
+            return;
+        }
+
+        Client clientCharge = Client.chargerClient(nom);
+
+        if (clientCharge != null) {
+        // --- CAS 1 : CLIENT CHARGÉ ---
+        this.client = clientCharge;
+        JOptionPane.showMessageDialog(this, "Client chargé : " + nom);
+
+        } else {
+            // --- CAS 2 : NOUVEAU CLIENT ---
+            double capital;
+            try {
+                capital = Double.parseDouble(capitalStr);
+                if (capital <= 0) throw new NumberFormatException();
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Capital initial invalide ou manquant. Entrez un capital > 0 pour créer un nouveau client.");
+                return; // S'arrête ici si le capital est mauvais
+            }
+    
+            this.client = new Client(nom, capital);
+            this.client.getPortefeuille().setProprietaire(this.client);
+            JOptionPane.showMessageDialog(this, "Nouveau client créé : " + nom);
+        }
+
+        // NOUVEAU BLOC DE SÉCURITÉ : Exécuté uniquement si un client a été créé ou chargé avec succès.
+        if (this.client != null) {
+            // Transition vers l'interface du simulateur
+            clientNameLabel.setText("Client: " + client.getNom());
+    
+            // IMPORTANT : Passe en mode HORS-LIGNE et met à jour l'affichage
+            setSimulatorState(false); 
+            updateSimulatorDisplay(); 
+    
+            cardLayout.show(cardPanel, CARD_SIMULATEUR);
+        }
     }
-    
-    
+
      //Crée le panneau principal du simulateur (avec Bandeau et JTabbedPane)
      
     private JPanel createSimulatorPanel() {
@@ -213,10 +225,19 @@ public class ClientGUI extends JFrame {
         // Bouton de déconnexion
         JButton deconnecterBtn = new JButton("Déconnexion");
         deconnecterBtn.addActionListener(e -> handleDisconnection());
-        
+
+        connecterMarcheBtn = new JButton("Connexion au Marché");
+        connecterMarcheBtn.addActionListener(e -> handleNetworkConnection(connecterMarcheBtn));
+
+        JPanel buttonGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        buttonGroup.setBackground(BG_MEDIUM);
+        buttonGroup.add(connecterMarcheBtn);
+        buttonGroup.add(deconnecterBtn);
+
         topBanner.add(clientNameLabel, BorderLayout.WEST);
         topBanner.add(soldeLabel, BorderLayout.CENTER);
-        topBanner.add(deconnecterBtn, BorderLayout.EAST);
+        topBanner.add(buttonGroup, BorderLayout.EAST);
+
         
         simulatorPanel.add(topBanner, BorderLayout.NORTH);
         
@@ -238,8 +259,67 @@ public class ClientGUI extends JFrame {
     }
     
     
-     //Crée le panneau de l'onglet "Marché et Actions"
+    private void handleNetworkConnection(JButton btn) {
+        if (client == null) return;
+
+        try {
+            // Tenter la connexion
+            client.seConnecter("localhost", 5001);
+            client.synchroniserStockMarche(); 
+
+            // Lancer la MAJ des prix
+            client.lancerMiseAJourActions(this::updateSimulatorDisplay); 
+
+            // IMPORTANT : Activer les actions réseau
+            setSimulatorState(true);
+            JOptionPane.showMessageDialog(this, "Connexion au marché réussie !");
+        
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Erreur de connexion au marché : " + ex.getMessage());
+        }
+    }
+
+    private void setSimulatorState(boolean connected) {
+        // 1. Mise à jour de l'affichage du statut
+        if (connected) {
+            clientNameLabel.setText("Client: " + client.getNom() + " (EN LIGNE)");
+        } else {
+            clientNameLabel.setText("Client: " + client.getNom() + " (HORS-LIGNE)");
+        }
     
+        // 2. Activation/Désactivation des fonctionnalités en ligne
+        actionsTable.setEnabled(connected); // Rendre la table des actions interactive
+        acheterBtn.setEnabled(connected && (actionGraphiqueCourante != null));
+        vendreBtn.setEnabled(connected && (actionGraphiqueCourante != null));
+    
+        // Les boutons sont visibles, mais leur état 'enabled' dépend de la connexion
+        // (et du stock/portefeuille, géré dans handleActionSelection)
+    
+        // 3. Gestion de l'affichage des données
+        if (connecterMarcheBtn != null) {
+            // Le bouton de connexion doit être visible et actif uniquement si nous sommes hors-ligne
+            connecterMarcheBtn.setVisible(!connected);
+        }
+        if (!connected) {
+            // En mode hors-ligne, la table des actions est vidée/cachée
+            actionTableModel.clearData();
+            graphiquePanel.setHistorique(null);
+            actionSelectionLabel.setText("Connectez-vous pour voir les prix du marché.");
+        
+            // Mettre à jour le solde (Portefeuille est toujours consultable)
+            Portefeuille portefeuille = client.getPortefeuille();
+            double soldeDispo = portefeuille.getSoldeDispo();
+            soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: N/A (Hors-Ligne)", soldeDispo));
+
+        } else {
+            // Mettre à jour l'affichage complet (appellera synchroniserStockMarche)
+            // Note: L'appel à updateSimulatorDisplay() sera fait après la connexion
+        }
+    
+        revalidate();
+        repaint();
+    }
+
     private JPanel createMarketPanel() {
         JPanel marketPanel = new JPanel(new BorderLayout(10, 10));
         marketPanel.setBackground(BG_DARK);
@@ -381,21 +461,18 @@ public class ClientGUI extends JFrame {
     private void handleDisconnection() {
         if (client != null) {
              // Supposons une méthode pour arrêter le thread dans Client.java
-             // client.deconnecter(); 
-             client = null;
+             
+            client.sauvegarderClient(); 
+            client.deconnecter();
+            //Nettoyer la sélection du marché après la déconnexion
+            actionsTable.getSelectionModel().clearSelection();
+            actionGraphiqueCourante = null; 
+
+            setSimulatorState(false);
+            JOptionPane.showMessageDialog(this, "Déconnexion du marché réussie. Consultation du portefeuille en mode Hors-Ligne.");
+
+
         }
-        
-        // Réinitialiser l'affichage
-        clientNameLabel.setText("Client: (Non connecté)");
-        soldeLabel.setText("Solde Disponible: 0.00 € | Valeur Totale: 0.00 €");
-        actionTableModel.clearData();
-        portefeuilleTableModel.clearData();
-        graphiquePanel.setHistorique(null);
-        actionGraphiqueCourante = null;
-        
-        // Retour à l'écran de connexion
-        cardLayout.show(cardPanel, CARD_CONNEXION);
-        JOptionPane.showMessageDialog(this, "Déconnexion réussie !");
     }
 
     
@@ -453,24 +530,61 @@ public class ClientGUI extends JFrame {
      //Met à jour le bandeau, la table des actions et le portefeuille.
      
     public void updateSimulatorDisplay() {
-        //Impossible si pas de client
+        // Impossible si pas de client
         if (client == null) return;
 
-        //On recupère le stock et le portefeuille depuis Client
+        // --- 1. SÉCURISATION DES RÉFÉRENCES (Garanti non-null) ---
+        Portefeuille portefeuilleClient = client.getPortefeuille();
+    
+        // Sécurisation du portefeuille client (la Map interne)
+        Map<Action, Integer> clientPortefeuille;
+        if (portefeuilleClient == null || portefeuilleClient.getPortefeuille() == null) {
+            clientPortefeuille = Collections.emptyMap(); 
+        } else {
+            clientPortefeuille = portefeuilleClient.getPortefeuille();
+        }
+
+        // Sécurisation du stock marché
         Map<Action, Integer> stockMarche = client.getDernierStockDisponible();
-        Portefeuille portefeuille = client.getPortefeuille();
+        if (stockMarche == null) {
+            stockMarche = Collections.emptyMap();
+        }
+        // --------------------------------------------------------
+
+        // --- 2. CALCULS SÉCURISÉS (Utilisation de portefeuilleClient après vérification) ---
+    
+        // Détermination sécurisée du solde et de la valeur (si portefeuilleClient est null, solde = 0)
+        double soldeDispo = 0.0;
+        double valeurTotale = 0.0;
+
+        if (portefeuilleClient != null) {
+        soldeDispo = portefeuilleClient.getSoldeDispo();
         
-        // 1. Mise à jour du Bandeau avec les calculs de la classe Portefeuille
-        double soldeDispo = portefeuille.getSoldeDispo();
-        double valeurTotale = soldeDispo + portefeuille.getValeurPortefeuille();
-        soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: %.2f €", soldeDispo, valeurTotale));
-        
+        // Calculer la valeur totale uniquement si nous avons des données marché (pour getValeurPortefeuille)
+        if (!stockMarche.isEmpty()) {
+                valeurTotale = soldeDispo + portefeuilleClient.getValeurPortefeuille();
+            } else {
+                // Si hors-ligne, la valeur totale est basée uniquement sur le solde
+                valeurTotale = soldeDispo;
+            }
+        }
+    
+        // --- 3. MISE À JOUR DE LA GUI ---
+
+        // 1. Mise à jour du Bandeau
+        if (!stockMarche.isEmpty() && portefeuilleClient != null) {
+            // En ligne : Afficher la valeur totale réelle
+            soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: %.2f €", soldeDispo, valeurTotale));
+        } else {
+            // Hors-ligne ou portefeuille null : Afficher seulement le solde disponible
+            soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: N/A (Hors-Ligne)", soldeDispo));
+        }
+    
         // 2. Mise à jour de la Table des actions disponibles
         actionTableModel.setData(stockMarche);
-        
-        // 3. Mise à jour de la Table du Portefeuille 
-        portefeuilleTableModel.setData(portefeuille.getPortefeuille(), stockMarche);
-        
+    
+        // 3. Mise à jour de la Table du Portefeuille (clientPortefeuille est garanti non-null)
+        portefeuilleTableModel.setData(clientPortefeuille, stockMarche);
         // 4. Mise à jour du graphique en temps réel (si une action est sélectionnée)
         if (actionGraphiqueCourante != null) {
             Action updatedAction = stockMarche.keySet().stream()
@@ -762,15 +876,6 @@ static class PortefeuilleTableModel extends AbstractTableModel {
                         .findFirst()
                         .orElse(actionDetenue); // Utilise l'ancienne si non trouvée (normalment n'arrive pas)
                         
-                    // Le prix d'achat de l'action détenue est stocké dans l'objet ActionPortefeuille original.
-                    // on suppose ici que actionDetenue.getPrix() renvoie le prix d'achat initial.
-                    // Si ce n'est pas le cas, vous devez stocker le prix d'achat initial dans Portefeuille.java.
-                    // Pour le moment, je vais créer une variable hypothétique pour le prix d'achat.
-                    // Pour que le calcul de variation fonctionne, chaque Action détenue doit connaitre son prix d'achat.
-                    // Pour simplifier ici, on va supposer que Portefeuille.java a un getter pour le prix d'achat.
-                    // Pour le moment, je vais utiliser une valeur fixe comme prix d'achat pour que l'interface s'affiche.
-                    
-                    // TODO: Remplacer 100.0 par actionDetenue.getPrixAchat() une fois disponible.
                     double prixAchatSupposed = actionDetenue.getPrix(); 
                     
                     return new ActionPortefeuille(
