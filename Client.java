@@ -5,6 +5,7 @@ import java.util.Scanner;
 import java.util.*;
 import javax.swing.SwingUtilities;
 
+
 //Serializable car les transactions comprennent un client qui va donc etre envoyé par socket
 public class Client implements Serializable{
 
@@ -19,7 +20,10 @@ public class Client implements Serializable{
     transient private ObjectInputStream fluxEntree;
     //Va servir a recuperer le stock dispo envoye par le serveur 
     transient private Map<Action, Integer> stockDisponible = Collections.emptyMap();
-
+    // Constante pour le répertoire de sauvegarde
+    private static final String CLIENT_SAVE_DIR = "clients/";
+    //Référence au thread de mise à jour des prix (private pour encapsulation) pour la deconnexion
+    transient private Thread updateThread;
 
 
     public Client(String nom, double soldeInitial){
@@ -57,6 +61,13 @@ public class Client implements Serializable{
     //Suppression du warning on sait bien quel objet sera envoyé 
     @SuppressWarnings("unchecked")
     public synchronized void synchroniserStockMarche(){
+        // Securité, Si le flux de sortie est null, cela signifie 
+        // que nous sommes déconnectés donc on arrête ici
+        if (fluxSortie == null) {
+            this.stockDisponible = Collections.emptyMap(); 
+            return; 
+        }
+
         try{
             fluxSortie.writeObject("GET_ACTIONS");
             fluxSortie.flush();
@@ -69,13 +80,16 @@ public class Client implements Serializable{
                 this.stockDisponible = (Map<Action, Integer>) reponse; 
             } else if (reponse instanceof List<?>){
                 // Gérer l'ancien format si nécessaire, sinon erreur
+                //Balise test
                 System.err.println("Réponse inattendue du serveur, attendu Map<Action, Integer>.");
                 this.stockDisponible = Collections.emptyMap();
             } else{
+                //Balise test
                 System.err.println("Réponse inattendue du serveur : " + reponse);
                 this.stockDisponible = Collections.emptyMap();
             }
         } catch (Exception e){
+            //Balise test
             System.err.println("Erreur lors de la récupération des actions : " + e.getMessage());
             this.stockDisponible = Collections.emptyMap();
         }
@@ -87,19 +101,25 @@ public class Client implements Serializable{
             socket = new Socket(hote, port);
 
             fluxSortie = new ObjectOutputStream(socket.getOutputStream());
+            fluxSortie.writeObject(this.getNom()); // Envoyer d'abord le nom comme String
             fluxSortie.flush();
             fluxEntree = new ObjectInputStream(socket.getInputStream());
-
+            //Balise test
             System.out.println(this.getNom() + " connecté à " + hote + ":" + port);
         } catch (IOException e){
+            //Balise test
             System.err.println("Erreur de connexion: " + e.getMessage());
+            fluxSortie = null; 
+            fluxEntree = null;
+            socket = null;
         }
     }
 
     //lance le thread de MAJ en interne pour revuperer les actions a jour 
     public void lancerMiseAJourActions(Runnable callback){
         new Thread(() ->{
-            System.out.println("Thread de mise à jour des prix démarré.");
+            //Balise test
+            System.out.println("Thread de mise à jour des prix démarré");
             while (true){
                 try{
                     Thread.sleep(500); 
@@ -114,9 +134,13 @@ public class Client implements Serializable{
                     }
                     
                 } catch (InterruptedException e){
-                    System.out.println("Thread de mise à jour des actions interrompu.");
+                    //Balise test
+                    System.out.println("Thread de mise à jour des actions interrompu on arrête");
+                    //Securité
+                    Thread.currentThread().interrupt(); // Réinitialise l'état d'interruption
                     break;
                 } catch (Exception e){
+                    //Balise test
                     System.err.println("Erreur dans le thread de mise à jour: " + e.getMessage() + ". Tentative de poursuite.");
                     try{
                         // Pause pour éviter une boucle serrée en cas d'erreur de connexion
@@ -130,26 +154,62 @@ public class Client implements Serializable{
         }).start();
     }
 
+    public void deconnecter() {
+        // 1. Arrêt du thread de mise à jour des prix
+        if (updateThread != null && updateThread.isAlive()) {
+            updateThread.interrupt();
+            updateThread = null; 
+        }
+
+        // 2. Fermeture des flux et de la socket
+        // On ferme dans un bloc try/catch séparé pour garantir la tentative de fermeture de toutes les ressources
+        try {
+            if (fluxSortie != null) fluxSortie.close();
+        } catch (IOException e) {
+            System.err.println("Erreur lors de la fermeture du flux de sortie : " + e.getMessage());
+        }
+        try {
+            if (fluxEntree != null) fluxEntree.close();
+        } catch (IOException e) {
+            System.err.println("Erreur lors de la fermeture du flux d'entrée : " + e.getMessage());
+        }
+        try {
+            if (socket != null && !socket.isClosed()) socket.close();
+            System.out.println(this.nom + " déconnecté du marché.");
+        } catch (IOException e) {
+            System.err.println("Erreur lors de la fermeture de la socket : " + e.getMessage());
+        }
+    
+        // 3. Réinitialisation de l'état réseau (pour la reconnexion future)
+        socket = null;
+        fluxSortie = null;
+        fluxEntree = null;
+        stockDisponible = Collections.emptyMap(); // Les données marché ne sont plus valides
+    }
+
     //envoie dune demande d'achat au serveur 
     public boolean demanderAchat(Action action, int quantite){
         Action actionActuelle = getActionMarcheActuel(action); 
         double cout = actionActuelle.getPrix() * quantite;
         
         if (portefeuille.getSoldeDispo() < cout){
-            System.out.println("Achat refusé côté client : solde insuffisant.");
+            //Balise test
+            //System.out.println("Achat refusé côté client : solde insuffisant.");
             return false;
         }
         
-        Transaction demande = new Transaction(this.getNom(), actionActuelle, quantite, TypeTransaction.ACHAT, LocalDate.now());
+        Transaction demande = new Transaction(this.getNom(), actionActuelle, quantite, TypeTransaction.ACHAT, LocalDateTime.now());
         Transaction resultat = envoyerTransaction(demande);
 
         if (resultat != null && resultat.estAcceptee()){ 
             portefeuille.ajouterAction(actionActuelle, quantite);
             portefeuille.setSoldeDispo(portefeuille.getSoldeDispo() - cout);
-            System.out.println("Achat validé : " + quantite + " x " + actionActuelle.getNom() + " achetés au prix de " + String.format("%.2f", actionActuelle.getPrix()) + "€/unité.");
+            //Balise test
+            //System.out.println("Achat validé : " + quantite + " x " + actionActuelle.getNom() + " achetés au prix de " + String.format("%.2f", actionActuelle.getPrix()) + "€/unité.");
             return true; // Succès: stock marché a diminué
         } else{
-            System.out.println("Achat refusé côté serveur : stock insuffisant.");
+            //Balise test
+            //System.out.println("Achat refusé côté serveur : stock insuffisant.");
             return false;
         }
     }
@@ -161,7 +221,8 @@ public class Client implements Serializable{
 
         // 1. Vérification locale AVANT l'envoi au serveur
         if (possede < quantite){
-            System.out.println("Vente refusée côté client : pas assez d'actions.");
+            //Balise test
+            //System.out.println("Vente refusée côté client : pas assez d'actions.");
             return false; // Échec: transaction n'est PAS envoyée, le stock serveur NE DOIT PAS être affecté
         }
 
@@ -169,14 +230,15 @@ public class Client implements Serializable{
         Action actionActuelle = getActionMarcheActuel(action); 
         double prixDeVente = actionActuelle.getPrix();
 
-        Transaction demande = new Transaction(this.getNom(), actionActuelle, quantite, TypeTransaction.VENTE, LocalDate.now());
+        Transaction demande = new Transaction(this.getNom(), actionActuelle, quantite, TypeTransaction.VENTE, LocalDateTime.now());
         Transaction resultat = envoyerTransaction(demande);
 
         if (resultat != null && resultat.estAcceptee()){ 
             // Le serveur valide toujours une vente dans votre logique Serveur.java
             portefeuille.retirerAction(action, quantite);
             portefeuille.setSoldeDispo(portefeuille.getSoldeDispo() + prixDeVente * quantite);
-            System.out.println("Vente validée : " + quantite + " x " + actionActuelle.getNom() + " vendus à " + String.format("%.2f", prixDeVente) + "€/unité.");
+            //Balise test
+            //System.out.println("Vente validée : " + quantite + " x " + actionActuelle.getNom() + " vendus à " + String.format("%.2f", prixDeVente) + "€/unité.");
             return true; // Succès: stock marché a augmenté
         } else{
             System.out.println("Vente refusée côté serveur.");
@@ -188,30 +250,84 @@ public class Client implements Serializable{
     //sous programme pour les demandes de vente/achat
     public synchronized Transaction envoyerTransaction(Transaction t){
         try{
-            System.out.println("\n[Client] Envoi transaction: " + t);
+            //Balise test
+            //System.out.println("\n[Client] Envoi transaction: " + t);
             fluxSortie.writeObject(t);
             fluxSortie.flush();
 
-            System.out.println("[Client] Attente réponse serveur");
+            //Balise test
+            //System.out.println("[Client] Attente réponse serveur");
             Transaction result = (Transaction) fluxEntree.readObject();
-            System.out.println("[Client] Réponse reçue: " + result + " " + (result.estAcceptee()? "ACCEPTEE":"REFUSEE"));
+            //Balise test
+            //System.out.println("[Client] Réponse reçue: " + result + " " + (result.estAcceptee()? "ACCEPTEE":"REFUSEE"));
 
             return result;
 
         } catch (Exception e){
-            System.err.println("Erreur d’envoi transaction : " + e.getMessage());
+            //Balise test
+            //System.err.println("Erreur d’envoi transaction : " + e.getMessage());
             return null;
         }
     }
 
+    // Méthode de sauvegarde du client (appellée à la déconnexion ou à la fermeture de l'interface)
+    public void sauvegarderClient() {
+        File dir = new File(CLIENT_SAVE_DIR);
+        // 1. Vérification et Création du Répertoire
+        if (!dir.exists()) {
+            System.out.println("[DEBUG SAUVEGARDE] Tente de créer le répertoire: " + CLIENT_SAVE_DIR);
+            // Utilisation de mkdirs() qui crée tous les répertoires parents nécessaires.
+            if (!dir.mkdirs()) { 
+                System.err.println("[ERREUR FATALE] Impossible de créer le répertoire de sauvegarde: " + CLIENT_SAVE_DIR);
+                // Si la création échoue ici, on arrête.
+                return; 
+            }
+            System.out.println("[DEBUG SAUVEGARDE] Répertoire créé avec succès.");
+        }
+        String fileName = CLIENT_SAVE_DIR + this.nom + ".ser";
+    
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
+            oos.writeObject(this); // Sauvegarde l'objet Client (y compris le Portefeuille)
+            System.out.println("Client " + this.nom + " sauvegardé dans " + fileName);
+        } catch (IOException e) {
+            System.err.println("Erreur lors de la sauvegarde du client " + this.nom + ": " + e.getMessage());
+        }
+    }
+
+    // Méthode statique de chargement
+    public static Client chargerClient(String nomClient) {
+        String fileName = CLIENT_SAVE_DIR + nomClient + ".ser";
+        File file = new File(fileName);
+    
+        if (file.exists()) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
+                Client clientCharge = (Client) ois.readObject();
+            
+                // Les champs 'transient' (socket, flux) doivent être nuls pour la reconnexion
+                clientCharge.socket = null;
+                clientCharge.fluxSortie = null;
+                clientCharge.fluxEntree = null;
+                clientCharge.updateThread = null;
+            
+                // Car il est transient et sera null après la désérialisation.
+                clientCharge.stockDisponible = Collections.emptyMap();
+
+                System.out.println("Client " + nomClient + " chargé avec solde : " + clientCharge.getPortefeuille().getSoldeDispo());
+                return clientCharge;
+            
+            } catch (IOException | ClassNotFoundException e) {
+                System.err.println("Erreur de chargement du client " + nomClient + ". Création d'un nouveau client.");
+                // Si le chargement échoue, l'application devrait gérer la création d'un nouveau client.
+                return null; 
+            }
+        }
+        // Aucun fichier trouvé, indique la nécessité de créer un nouveau client
+        return null; 
+    }
 
     //Main : lance linterface graphique
 
     public static void main(String[] args){
-
-
-        // Serveur peut être null si offline
-        // Serveur serveur = null; // Variable Serveur supprimée car non utilisée ici
         javax.swing.SwingUtilities.invokeLater(() -> new ClientGUI());
     }
 }
