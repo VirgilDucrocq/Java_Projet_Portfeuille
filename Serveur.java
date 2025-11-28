@@ -9,6 +9,11 @@ public class Serveur{
     private ServerSocket socketServeur;
     private Map<Action, Integer> stockGlobal; // Actions + Quantités du marché
     private List<ThreadClientServeur> clients = new ArrayList<>(); //Clients connectés
+    private final List<Transaction> historiqueTransactions = Collections.synchronizedList(new ArrayList<>());
+    //Fichier binaire pour charger les données
+    private static final String FICHIER_BINAIRE = "historique_binaire.ser"; 
+    // Fichier Texte (Lisible) pour le log de débogage
+    private static final String FICHIER_LOG_LISIBLE = "transactions_lisibles.txt";
 
     //Constructeur port + stock de base
     public Serveur(int port, Map<Action, Integer> stockInitial){
@@ -23,6 +28,11 @@ public class Serveur{
 
     public int getPort(){
         return this.port;
+    }
+
+    public List<Transaction> getHistoriqueTransactions() {
+        // Retourne une vue non modifiable pour éviter les modifications externes
+        return Collections.unmodifiableList(historiqueTransactions);
     }
     
     public synchronized List<Action> getActions(){
@@ -76,8 +86,46 @@ public class Serveur{
             stockGlobal.put(action, stockActuel + qte);
             t.setValide(true);
         }
+        historiqueTransactions.add(t);
+        logTransactionLisible(t);
     }
 
+    // Méthode de sauvegarde
+    // Méthode de sauvegarde (appelée par le Shutdown Hook)
+    public void sauvegarderHistorique() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FICHIER_BINAIRE))) {
+            // Sauvegarde la liste entière en une seule fois
+            oos.writeObject(new ArrayList<>(historiqueTransactions)); 
+            System.out.println("Historique des transactions sauvegardé sur le fichier binaire");
+        } catch (IOException e) {
+            System.err.println("Erreur lors de la sauvegarde binaire de l'historique : " + e.getMessage());
+        }
+    }
+
+    // Méthode de chargement (appelée au démarrage)
+    @SuppressWarnings("unchecked")
+    public void chargerHistorique() {
+        File file = new File(FICHIER_BINAIRE);
+        if (file.exists()) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FICHIER_BINAIRE))) {
+                List<Transaction> loadedList = (List<Transaction>) ois.readObject();
+                historiqueTransactions.addAll(loadedList);
+                System.out.println("Historique des transactions chargé (" + loadedList.size() + " entrées) depuis le binaire");
+            } catch (IOException | ClassNotFoundException e) {
+                System.err.println("Erreur lors du chargement de l'historique binaire : " + e.getMessage());
+            }
+        }
+    }
+
+    public void logTransactionLisible(Transaction t) {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(FICHIER_LOG_LISIBLE, true))) {
+            // Utilisation de ChronoUnit pour tronquer l'heure
+            String dateHeureTronquee = t.getDateHeure().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString();
+            pw.println(t.toString());
+        } catch (IOException e) {
+            System.err.println("Erreur lors de l'écriture du log lisible : " + e.getMessage());
+        }
+    }
     
     // Main du Serveur (création à la main en dur des actions disponibles (pourrait être mis dans une procédure
     // avec une interface graphique style panneau de contrôle serveur)
@@ -95,11 +143,16 @@ public class Serveur{
 
         // Création et démarrage du serveur
         Serveur serveur = new Serveur(5001, stockInitial);
+        serveur.chargerHistorique();
         new Thread(() ->{serveur.demarrer();}).start();
         Thread.sleep(500);
 
         // Lancement du thread de mise à jour des prix (toutes les 20 sec)
         MajCoursThread majCours = new MajCoursThread(serveur, 2000); 
         new Thread(majCours).start();
+        //Va recuperer juste avant la fermeture (Shutdown hook)
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        serveur.sauvegarderHistorique();
+        }));
     }
 }
