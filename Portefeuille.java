@@ -1,6 +1,7 @@
 import java.util.*;
 import java.io.*;
 import java.util.stream.Collectors;
+import java.util.HashMap;
 
 public class Portefeuille implements Serializable{
     
@@ -11,7 +12,7 @@ public class Portefeuille implements Serializable{
     private Client proprietaire;
     private double soldeDispo;
     //On n'envoie pas de map
-    transient private Map<Action, Integer> portefeuille; // Action + Quantité
+    private Map<Action, Integer> portefeuille = new HashMap<>(); // Action + Quantité
 
     // Constructeur
     // On initialise le proprietaire en dehors comme c'est lui qui va 
@@ -21,7 +22,6 @@ public class Portefeuille implements Serializable{
             throw new IllegalArgumentException("Le solde initial doit être positif");
         }
         this.soldeDispo = soldeInitial;
-        this.portefeuille = new HashMap<>();
     }
 
 
