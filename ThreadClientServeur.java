@@ -7,49 +7,68 @@ public class ThreadClientServeur implements Runnable {
 
     private Socket socket;
     private Serveur serveur;
-    private ObjectInputStream in;
-    private ObjectOutputStream out;
+    private ObjectInputStream fluxEntree;
+    private ObjectOutputStream fluxSortie;
+    private String clientNom;
 
     //Constructeur
     public ThreadClientServeur(Socket socket, Serveur serveur) throws IOException{
         this.socket = socket;
         this.serveur = serveur;
-        this.out = new ObjectOutputStream(socket.getOutputStream());
-        this.out.flush();
-        this.in = new ObjectInputStream(socket.getInputStream());
+        this.fluxSortie = new ObjectOutputStream(socket.getOutputStream());
+        this.fluxSortie.flush();
+        this.fluxEntree = new ObjectInputStream(socket.getInputStream());
     }
 
 
     
     public void run(){
         try {
+            boolean nomRecu = false; // Flag pour s'assurer que le nom est bien défini
             while (true) {
-                Object obj = in.readObject();
+                Object obj = fluxEntree.readObject();
 
-                //Si on nous demande les actions, on envoie le stock du serveur (nouvelle instance pour être sûr de ne rien modifier, sécurité)
-                if (obj instanceof String cmd && cmd.equals("GET_ACTIONS")) {
-                    out.reset();
-                    out.writeObject(new HashMap<>(serveur.getStockGlobal())); 
-                    out.flush();
-                    continue;
-                }
+                if (obj instanceof String cmd) {
+                
+                    if (!nomRecu) {
+                        // 1. C'est le premier String reçu, c'est le nom.
+                        this.clientNom = cmd;
+                        nomRecu = true;
+                        System.out.println("Client connecté : " + this.clientNom);
+                    
+                        // On ne répond rien, le client est juste identifié.
+                        continue; 
+                    } 
+                
+                    // 2. C'est une commande (ex: GET_ACTIONS)
+                    if (cmd.equals("GET_ACTIONS")) {
+                        fluxSortie.reset();
+                        fluxSortie.writeObject(new HashMap<>(serveur.getStockGlobal())); 
+                        fluxSortie.flush();
+                        continue;
+                    }
+            }
 
                 if (obj instanceof Transaction t) {
                     //Balises de contrôle depuis le terminal
                     //System.out.println("[Serveur] Reçu: " + t);
-                    out.reset();
+                    fluxSortie.reset();
                     serveur.traiterTransaction(t);
-                    out.writeObject(t);
-                    out.flush();
+                    fluxSortie.writeObject(t);
+                    fluxSortie.flush();
                     //System.out.println("[Serveur] Renvoi: " + t + " " + (t.estAcceptee()? "ACCEPTEE":"REFUSEE"));
                 }
 
                 
             }
         } catch (IOException | ClassNotFoundException e) {
-            System.out.println("Client déconnecté : " + e.getMessage());
+            // Affichage du nom mémorisé (ou de la valeur par défaut si jamais rien n'a été reçu)
+            System.out.println("Client (" + this.clientNom + ") déconnecté");
+            try {
+                socket.close();
+            } catch (IOException closeE) {
+                System.err.println("Erreur lors de la fermeture de la socket : " + closeE.getMessage());
+            }
         }
     }
-    
 }
- 
