@@ -48,12 +48,13 @@ public class Portefeuille implements Serializable{
     }
 
     
-    public double getValeurPortefeuille(){
-        double valeurActions = 0.0;
+    public double getMontantTotalInvesti(){
+        double totalInvesti = 0.0;
         for (Map.Entry<Action, Integer> entree : portefeuille.entrySet()){
-            valeurActions += entree.getKey().getPrix() * entree.getValue(); //Pour chaque entrée de la HashMap on fait Prix*Quantité
+            // entree.getKey().getPrix() est ici le PRIX MOYEN D'ACHAT
+            totalInvesti += entree.getKey().getPrix() * entree.getValue(); 
         }
-        return valeurActions;
+        return totalInvesti;
     }
 
     
@@ -71,12 +72,42 @@ public class Portefeuille implements Serializable{
     }
 
     // Méthodes
-    public synchronized void ajouterAction(Action action, int quantite){
-        if (quantite <= 0){
-            throw new IllegalArgumentException("La quantité doit être > 0");
+    public synchronized void ajouterAction(Action actionNouvelle, int quantiteAjoutee){
+        if (quantiteAjoutee <= 0) throw new IllegalArgumentException("La quantité doit être > 0");
+
+        // Cas 1 : Nouvelle action, on l'ajoute simplement avec son prix actuel
+        if (!portefeuille.containsKey(actionNouvelle)) {
+            portefeuille.put(actionNouvelle, quantiteAjoutee);
+        } 
+        // Cas 2 : On possède déjà l'action, on doit lisser le prix 
+        // sinon la clef reste la même et on a un prix d'achat faux
+        else {
+            Action actionAncienne = null;
+            // On retrouve l'objet Action qui sert de clef avec l'ancien prix
+            for (Action a : portefeuille.keySet()) {
+                if (a.equals(actionNouvelle)) { 
+                    actionAncienne = a;
+                    break;
+                }
+            }
+
+            if (actionAncienne != null) {
+                int qteAncienne = portefeuille.get(actionAncienne);
+                
+                // Calcul du coût total (ce qu'on avait payé avant + ce qu'on paie maintenant)
+                double coutTotalAncien = actionAncienne.getPrix() * qteAncienne;
+                double coutTotalNouveau = actionNouvelle.getPrix() * quantiteAjoutee;
+                
+                int nouvelleQteTotal = qteAncienne + quantiteAjoutee;
+                
+                // nouveau prix = moyenne pondérée
+                double nouveauPrixMoyen = (coutTotalAncien + coutTotalNouveau) / nouvelleQteTotal;
+
+                // Mise à jour de la clef dans la Map
+                actionAncienne.setPrix(nouveauPrixMoyen);
+                portefeuille.put(actionAncienne, nouvelleQteTotal);
+            }
         }
-        //Si on en a déjà on rajoute sinon on crée la quantité
-        portefeuille.put(action, portefeuille.containsKey(action) ? portefeuille.get(action) + quantite : quantite);
     }
 
     
