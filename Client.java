@@ -21,7 +21,7 @@ public class Client implements Serializable{
     //Va servir a recuperer le stock dispo envoye par le serveur 
     transient private Map<Action, Integer> stockDisponible = Collections.emptyMap();
     // Constante pour le répertoire de sauvegarde
-    private static final String CLIENT_SAVE_DIR = "clients/";
+    private static final String CLIENT_DIR_SAUV = "clients/";
     //Référence au thread de mise à jour des prix (private pour encapsulation) pour la deconnexion
     transient private Thread updateThread;
 
@@ -58,7 +58,7 @@ public class Client implements Serializable{
     }
 
     //Maj des données (stockDisponible) reçu par socket par le serveur
-    //Suppression du warning on sait bien quel objet sera envoyé 
+    //Suppression du warning on sait bien quel objet sera envoyé dans la map
     @SuppressWarnings("unchecked")
     public synchronized void synchroniserStockMarche(){
         // Securité, Si le flux de sortie est null, cela signifie 
@@ -74,20 +74,34 @@ public class Client implements Serializable{
 
             Object reponse = fluxEntree.readObject();
         
-            // ATTENTION: GÉRER LA RÉCEPTION DE LA MAP !
+            // gestion reception de la map
             if (reponse instanceof Map<?, ?>){
-                // Assurez-vous que le casting est sûr
+                // on s'assure que le casting est sûr
                 this.stockDisponible = (Map<Action, Integer>) reponse; 
-            } else if (reponse instanceof List<?>){
-                // Gérer l'ancien format si nécessaire, sinon erreur
-                //Balise test
-                System.err.println("Réponse inattendue du serveur, attendu Map<Action, Integer>.");
-                this.stockDisponible = Collections.emptyMap();
             } else{
                 //Balise test
                 System.err.println("Réponse inattendue du serveur : " + reponse);
                 this.stockDisponible = Collections.emptyMap();
             }
+
+            if (!this.stockDisponible.isEmpty() && !this.portefeuille.getPortefeuille().isEmpty()) {
+            
+                // Itérer sur les actions détenues par le client (clés de la map portefeuille)
+                for (Action actionDetenue : this.portefeuille.getPortefeuille().keySet()) {
+                
+                    // On récupère l'instance Action à jour depuis la map marché (stockDisponible)
+                    Action actionMarche = this.stockDisponible.keySet().stream()
+                        .filter(a -> a.equals(actionDetenue)) // Grâce à l'equals() basé sur le nom
+                        .findFirst()
+                        .orElse(null); 
+                
+                    if (actionMarche != null) {
+                        // Mettre à jour le prix de l'objet Action qui est la clé dans le portefeuille.
+                        actionDetenue.setPrix(actionMarche.getPrix());
+                    }
+                }
+            }
+
         } catch (Exception e){
             //Balise test
             System.err.println("Erreur lors de la récupération des actions : " + e.getMessage());
@@ -115,9 +129,9 @@ public class Client implements Serializable{
         }
     }
 
-    //lance le thread de MAJ en interne pour revuperer les actions a jour 
+    //lance le thread de MAJ en interne pour recuperer les actions a jour 
     public void lancerMiseAJourActions(Runnable callback){
-        new Thread(() ->{
+        Thread majThread = new Thread(() ->{
             //Balise test
             System.out.println("Thread de mise à jour des prix démarré");
             while (true){
@@ -151,43 +165,45 @@ public class Client implements Serializable{
                     }
                 }
             }
-        }).start();
+        });
+        this.updateThread = majThread; 
+        majThread.start();    
     }
 
-    public void deconnecter() {
-        // 1. Arrêt du thread de mise à jour des prix
-        if (updateThread != null && updateThread.isAlive()) {
+    public void deconnecter(){
+        // Arrêt du thread de mise à jour des prix
+        if (updateThread != null && updateThread.isAlive()){
             updateThread.interrupt();
             updateThread = null; 
         }
 
-        // 2. Fermeture des flux et de la socket
-        // On ferme dans un bloc try/catch séparé pour garantir la tentative de fermeture de toutes les ressources
-        try {
+        // Fermeture des flux et de la socket
+        // (On ferme bien dans des try+catch séparé pour garantir la tentative de fermeture de toutes les ressources)
+        try{
             if (fluxSortie != null) fluxSortie.close();
-        } catch (IOException e) {
+        } catch (IOException e){
             System.err.println("Erreur lors de la fermeture du flux de sortie : " + e.getMessage());
         }
-        try {
+        try{
             if (fluxEntree != null) fluxEntree.close();
-        } catch (IOException e) {
+        }catch (IOException e){
             System.err.println("Erreur lors de la fermeture du flux d'entrée : " + e.getMessage());
         }
-        try {
+        try{
             if (socket != null && !socket.isClosed()) socket.close();
             System.out.println(this.nom + " déconnecté du marché.");
-        } catch (IOException e) {
+        }catch (IOException e){
             System.err.println("Erreur lors de la fermeture de la socket : " + e.getMessage());
         }
     
-        // 3. Réinitialisation de l'état réseau (pour la reconnexion future)
+        //Réinitialisation de l'état réseau (pour se reconnecter après)
         socket = null;
         fluxSortie = null;
         fluxEntree = null;
-        stockDisponible = Collections.emptyMap(); // Les données marché ne sont plus valides
+        stockDisponible = Collections.emptyMap(); // Les dernières données du marché ne sont plus valides (d'ici quelques ms)
     }
 
-    //envoie dune demande d'achat au serveur 
+    //envoie d'une demande d'achat au serveur 
     public boolean demanderAchat(Action action, int quantite){
         Action actionActuelle = getActionMarcheActuel(action); 
         double cout = actionActuelle.getPrix() * quantite;
@@ -198,9 +214,11 @@ public class Client implements Serializable{
             return false;
         }
         
+        //On crée la transaction et on regarde si elle est validée ou non
         Transaction demande = new Transaction(this.getNom(), actionActuelle, quantite, TypeTransaction.ACHAT, LocalDateTime.now());
         Transaction resultat = envoyerTransaction(demande);
 
+        //si elle est ok
         if (resultat != null && resultat.estAcceptee()){ 
             portefeuille.ajouterAction(actionActuelle, quantite);
             portefeuille.setSoldeDispo(portefeuille.getSoldeDispo() - cout);
@@ -219,11 +237,11 @@ public class Client implements Serializable{
     public boolean demanderVente(Action action, int quantite){
         int possede = portefeuille.getPortefeuille().getOrDefault(action, 0);
 
-        // 1. Vérification locale AVANT l'envoi au serveur
+        // Vérification locale de la quantité avant d'envoyer au serveur
         if (possede < quantite){
             //Balise test
             //System.out.println("Vente refusée côté client : pas assez d'actions.");
-            return false; // Échec: transaction n'est PAS envoyée, le stock serveur NE DOIT PAS être affecté
+            return false;
         }
 
         // Utilisation de la méthode utilitaire pour obtenir le prix marché
@@ -234,12 +252,12 @@ public class Client implements Serializable{
         Transaction resultat = envoyerTransaction(demande);
 
         if (resultat != null && resultat.estAcceptee()){ 
-            // Le serveur valide toujours une vente dans votre logique Serveur.java
+            // Le serveur valide toujours la vente dans notre logique du moment qu'on a le stock
             portefeuille.retirerAction(action, quantite);
             portefeuille.setSoldeDispo(portefeuille.getSoldeDispo() + prixDeVente * quantite);
             //Balise test
             //System.out.println("Vente validée : " + quantite + " x " + actionActuelle.getNom() + " vendus à " + String.format("%.2f", prixDeVente) + "€/unité.");
-            return true; // Succès: stock marché a augmenté
+            return true; //tout est bon on va augmenter le stock marché 
         } else{
             System.out.println("Vente refusée côté serveur.");
             return false; 
@@ -247,23 +265,21 @@ public class Client implements Serializable{
     }
 
 
-    //sous programme pour les demandes de vente/achat
+    //sous programme pour la partie commune des demandes de vente/achat 
     public synchronized Transaction envoyerTransaction(Transaction t){
         try{
             //Balise test
             //System.out.println("\n[Client] Envoi transaction: " + t);
             fluxSortie.writeObject(t);
             fluxSortie.flush();
-
             //Balise test
             //System.out.println("[Client] Attente réponse serveur");
             Transaction result = (Transaction) fluxEntree.readObject();
             //Balise test
             //System.out.println("[Client] Réponse reçue: " + result + " " + (result.estAcceptee()? "ACCEPTEE":"REFUSEE"));
-
             return result;
 
-        } catch (Exception e){
+        }catch (Exception e){
             //Balise test
             //System.err.println("Erreur d’envoi transaction : " + e.getMessage());
             return null;
@@ -271,57 +287,53 @@ public class Client implements Serializable{
     }
 
     // Méthode de sauvegarde du client (appellée à la déconnexion ou à la fermeture de l'interface)
-    public void sauvegarderClient() {
-        File dir = new File(CLIENT_SAVE_DIR);
-        // 1. Vérification et Création du Répertoire
-        if (!dir.exists()) {
-            System.out.println("[DEBUG SAUVEGARDE] Tente de créer le répertoire: " + CLIENT_SAVE_DIR);
-            // Utilisation de mkdirs() qui crée tous les répertoires parents nécessaires.
-            if (!dir.mkdirs()) { 
-                System.err.println("[ERREUR FATALE] Impossible de créer le répertoire de sauvegarde: " + CLIENT_SAVE_DIR);
-                // Si la création échoue ici, on arrête.
-                return; 
-            }
-            System.out.println("[DEBUG SAUVEGARDE] Répertoire créé avec succès.");
-        }
-        String fileName = CLIENT_SAVE_DIR + this.nom + ".ser";
+    public void sauvegarderClient(){
+        File dir = new File(CLIENT_DIR_SAUV);
     
+        //Vérification et Création du Répertoire
+        // Si le répertoire n'existe pas et que la tentative de création échoue, on stop
+        if (!dir.exists() && !dir.mkdirs()) { 
+            System.err.println("Soucis, impossible de créer le répertoire de sauvegarde: " + CLIENT_DIR_SAUV);
+            return; 
+        }
+
+        //Sauvegarde de l'Objet (Client)
+        String fileName = CLIENT_DIR_SAUV + this.nom + ".ser";
+
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
-            oos.writeObject(this); // Sauvegarde l'objet Client (y compris le Portefeuille)
-            System.out.println("Client " + this.nom + " sauvegardé dans " + fileName);
+            oos.writeObject(this); // Sauvegarde l'objet Client
+            System.out.println("Client " + this.nom + " sauvegardé");
         } catch (IOException e) {
-            System.err.println("Erreur lors de la sauvegarde du client " + this.nom + ": " + e.getMessage());
+            System.err.println("Soucis, sauvegarde du client " + this.nom + " : " + e.getMessage());
         }
     }
 
-    // Méthode statique de chargement
+    // Méthode statique de chargement (liée à la classe et pas l'instance vu que tous les clients la partage )
     public static Client chargerClient(String nomClient) {
-        String fileName = CLIENT_SAVE_DIR + nomClient + ".ser";
-        File file = new File(fileName);
+        String ficNom = CLIENT_DIR_SAUV + nomClient + ".ser";
+        File fic = new File(ficNom);
     
-        if (file.exists()) {
-            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
+        if (fic.exists()) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(ficNom))){
                 Client clientCharge = (Client) ois.readObject();
             
-                // Les champs 'transient' (socket, flux) doivent être nuls pour la reconnexion
+                // Les champs transient doivent être nuls pour la reconnexion
                 clientCharge.socket = null;
                 clientCharge.fluxSortie = null;
                 clientCharge.fluxEntree = null;
                 clientCharge.updateThread = null;
-            
-                // Car il est transient et sera null après la désérialisation.
                 clientCharge.stockDisponible = Collections.emptyMap();
 
-                System.out.println("Client " + nomClient + " chargé avec solde : " + clientCharge.getPortefeuille().getSoldeDispo());
+                System.out.println("Client " + nomClient + " chargé");
                 return clientCharge;
             
-            } catch (IOException | ClassNotFoundException e) {
-                System.err.println("Erreur de chargement du client " + nomClient + ". Création d'un nouveau client.");
-                // Si le chargement échoue, l'application devrait gérer la création d'un nouveau client.
+            }catch (IOException | ClassNotFoundException e){
+                System.err.println("Erreur de chargement du client " + nomClient + " Création d'un nouveau client ");
+                // Si le chargement échoue, on crée le client
                 return null; 
             }
         }
-        // Aucun fichier trouvé, indique la nécessité de créer un nouveau client
+        // Aucun fichier trouvé, on crée un nouveau client
         return null; 
     }
 
