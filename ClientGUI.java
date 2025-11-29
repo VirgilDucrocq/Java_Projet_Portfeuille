@@ -1,5 +1,5 @@
 // Aide de l'IA ici car nous n'avons pas eu le temps de prendre vraiment en main la librairie
-// (Surtout une aide au niveau de la gestion des classes internes / gestion des couleurs tables etc)
+// (Surtout une aide au niveau de la gestion des classes internes / gestion des couleurs, tables etc)
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
@@ -15,7 +15,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 
 
-public class ClientGUI extends JFrame {
+
+public class ClientGUI extends JFrame{
 
     //Herite d'une classe serializable
     private static final long serialVersionUID = 1L;
@@ -61,17 +62,18 @@ public class ClientGUI extends JFrame {
     //Constructeur
     @SuppressWarnings("this-escape")
     //Le warning vient du setTitle qui est inoffensif 
-    public ClientGUI() {
+    public ClientGUI(){
         //Titre
         setTitle("Client Boursier - Marchés en Temps Réel");
 
         //On essaie d'appliquer le style nimbus qui est plus joli
         try {
             UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
-        } catch (Exception e) { /* Ignorer si non disponible */ }
+        } catch (Exception e) {}
 
-        //Taille à regler
-        setSize(1200, 800);
+        //Taille max
+        setExtendedState(JFrame.MAXIMIZED_BOTH); 
+        setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
         // Utilisation de CardLayout sur le panneau principal
@@ -86,24 +88,13 @@ public class ClientGUI extends JFrame {
         // Afficher l'écran de connexion au démarrage
         cardLayout.show(cardPanel, CARD_CONNEXION);
 
-        addWindowListener(new java.awt.event.WindowAdapter(){
-            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-                if (client != null) {
-                    client.sauvegarderClient(); // <-- ET ICI
-                }
-                // Ferme l'application
-                System.exit(0);
-            }
-        });
         setVisible(true);
     }
     
-    // ==========================================================
-    // MÉTHODES DE CRÉATION DES ÉCRANS
-    // ==========================================================
+    //Création des écrans 
 
-    //Crée le panneau de connexion initial (Pas de changement)
-    private JPanel createConnexionPanel() {
+    //Crée le panneau de connexion initial 
+    private JPanel createConnexionPanel(){
         //Cree le panel
         JPanel panel = new JPanel(new GridBagLayout()); 
         panel.setBackground(BG_DARK);
@@ -150,11 +141,8 @@ public class ClientGUI extends JFrame {
         
         panel.add(mainLayout); 
         
-        //Actions à declencher si appuie du boutton creer client
-        // 1. Charger/Créer le client (LOCAL)
+        //Actions à declencher si appuie du boutton creer/charger client
         initierBtn.addActionListener(e -> handleInitialization(nomField.getText(), capitalField.getText()));
-
-        
         return panel;
         }
     
@@ -169,12 +157,12 @@ public class ClientGUI extends JFrame {
         Client clientCharge = Client.chargerClient(nom);
 
         if (clientCharge != null) {
-        // --- CAS 1 : CLIENT CHARGÉ ---
+        //cas 1 on a chargé un client
         this.client = clientCharge;
         JOptionPane.showMessageDialog(this, "Client chargé : " + nom);
 
         } else {
-            // --- CAS 2 : NOUVEAU CLIENT ---
+            // cas 2 c'est un nouveau client crée
             double capital;
             try {
                 capital = Double.parseDouble(capitalStr);
@@ -189,12 +177,12 @@ public class ClientGUI extends JFrame {
             JOptionPane.showMessageDialog(this, "Nouveau client créé : " + nom);
         }
 
-        // NOUVEAU BLOC DE SÉCURITÉ : Exécuté uniquement si un client a été créé ou chargé avec succès.
+        // sécurité, exécuté uniquement si un client a été créé ou chargé avec succès
         if (this.client != null) {
             // Transition vers l'interface du simulateur
             clientNameLabel.setText("Client: " + client.getNom());
     
-            // IMPORTANT : Passe en mode HORS-LIGNE et met à jour l'affichage
+            // bien passer en mode hors ligne et mettre à jour l'affichage
             setSimulatorState(false); 
             updateSimulatorDisplay(); 
     
@@ -208,12 +196,12 @@ public class ClientGUI extends JFrame {
         JPanel simulatorPanel = new JPanel(new BorderLayout());
         simulatorPanel.setBackground(BG_DARK);
         
-        // 1. Bandeau Supérieur (Nom du client, Solde, Déconnexion)
+        //Bandeau Supérieur (Nom du client, Solde, Déconnexion)
         JPanel topBanner = new JPanel(new BorderLayout(20, 0));
         topBanner.setBackground(BG_MEDIUM);
         topBanner.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
         
-        // Labels d'information
+        //Labels d'information
         clientNameLabel = new JLabel("Client: (Non connecté)");
         clientNameLabel.setForeground(FG_LIGHT);
         clientNameLabel.setFont(FONT_BAND);
@@ -222,7 +210,7 @@ public class ClientGUI extends JFrame {
         soldeLabel.setForeground(ACCENT_BLUE);
         soldeLabel.setFont(FONT_BAND);
         
-        // Bouton de déconnexion
+        //Bouton de déconnexion
         JButton deconnecterBtn = new JButton("Déconnexion");
         deconnecterBtn.addActionListener(e -> handleDisconnection());
 
@@ -241,16 +229,16 @@ public class ClientGUI extends JFrame {
         
         simulatorPanel.add(topBanner, BorderLayout.NORTH);
         
-        // 2. Zone Tabulée (Centre)
+        //Zone Tabulée (Centre)
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setFont(FONT_HEADER);
         tabbedPane.setBackground(BG_MEDIUM.darker());
         tabbedPane.setForeground(FG_LIGHT);
         
-        // Onglet 1: Marché et Graphique 
+        //Onglet 1: Marché et Graphique 
         tabbedPane.addTab("Marché et Actions", createMarketPanel());
         
-        // Onglet 2: Portefeuille 
+        //Onglet 2: Portefeuille 
         tabbedPane.addTab("Mon Portefeuille", createPortefeuillePanel());
         
         simulatorPanel.add(tabbedPane, BorderLayout.CENTER);
@@ -258,19 +246,19 @@ public class ClientGUI extends JFrame {
         return simulatorPanel;
     }
     
-    
+    //Gestion de l'action du bouton "se connecter"
     private void handleNetworkConnection(JButton btn) {
         if (client == null) return;
 
         try {
-            // Tenter la connexion
+            // Tenter la connexion (serveur en dur, on pourrait changer cela)
             client.seConnecter("localhost", 5001);
             client.synchroniserStockMarche(); 
 
             // Lancer la MAJ des prix
             client.lancerMiseAJourActions(this::updateSimulatorDisplay); 
 
-            // IMPORTANT : Activer les actions réseau
+            //Activer les actions réseau
             setSimulatorState(true);
             JOptionPane.showMessageDialog(this, "Connexion au marché réussie !");
         
@@ -280,40 +268,40 @@ public class ClientGUI extends JFrame {
     }
 
     private void setSimulatorState(boolean connected) {
-        // 1. Mise à jour de l'affichage du statut
+        // Mise à jour de l'affichage du statut
         if (connected) {
             clientNameLabel.setText("Client: " + client.getNom() + " (EN LIGNE)");
         } else {
             clientNameLabel.setText("Client: " + client.getNom() + " (HORS-LIGNE)");
         }
     
-        // 2. Activation/Désactivation des fonctionnalités en ligne
+        //Activation/Désactivation des fonctionnalités en ligne
         actionsTable.setEnabled(connected); // Rendre la table des actions interactive
         acheterBtn.setEnabled(connected && (actionGraphiqueCourante != null));
         vendreBtn.setEnabled(connected && (actionGraphiqueCourante != null));
     
-        // Les boutons sont visibles, mais leur état 'enabled' dépend de la connexion
-        // (et du stock/portefeuille, géré dans handleActionSelection)
+        //Les boutons sont visibles, mais leur état 'enabled' dépend de la connexion
+        //(et du stock/portefeuille, géré dans handleActionSelection)
     
-        // 3. Gestion de l'affichage des données
+        //Gestion de l'affichage des données
         if (connecterMarcheBtn != null) {
             // Le bouton de connexion doit être visible et actif uniquement si nous sommes hors-ligne
             connecterMarcheBtn.setVisible(!connected);
         }
         if (!connected) {
-            // En mode hors-ligne, la table des actions est vidée/cachée
+            //En mode hors-ligne, la table des actions est vidée/cachée
             actionTableModel.clearData();
             graphiquePanel.setHistorique(null);
             actionSelectionLabel.setText("Connectez-vous pour voir les prix du marché.");
         
-            // Mettre à jour le solde (Portefeuille est toujours consultable)
+            //Mettre à jour le solde (Portefeuille est toujours consultable)
             Portefeuille portefeuille = client.getPortefeuille();
             double soldeDispo = portefeuille.getSoldeDispo();
             soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: N/A (Hors-Ligne)", soldeDispo));
 
         } else {
-            // Mettre à jour l'affichage complet (appellera synchroniserStockMarche)
-            // Note: L'appel à updateSimulatorDisplay() sera fait après la connexion
+            //Mettre à jour l'affichage complet (appellera synchroniserStockMarche)
+            //L'appel à updateSimulatorDisplay() sera fait après la connexion
         }
     
         revalidate();
@@ -325,11 +313,11 @@ public class ClientGUI extends JFrame {
         marketPanel.setBackground(BG_DARK);
         marketPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        // 1. Tableau des actions 
+        //Tableau des actions 
         actionTableModel = new ActionTableModel();
         actionsTable = new JTable(actionTableModel);
         
-        // esthetique
+        //esthetique
         actionsTable.setFont(FONT_MONO);
         actionsTable.setBackground(BG_MEDIUM);
         actionsTable.setForeground(FG_LIGHT);
@@ -337,7 +325,7 @@ public class ClientGUI extends JFrame {
         actionsTable.setSelectionForeground(Color.WHITE);
         actionsTable.setRowHeight(25);
         
-        // Alignement des colonnes (Prix et Stock)
+        //Alignement des colonnes (Prix et Stock)
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
         rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
         actionsTable.getColumnModel().getColumn(1).setCellRenderer(rightRenderer); 
@@ -346,14 +334,14 @@ public class ClientGUI extends JFrame {
         JScrollPane scrollActions = new JScrollPane(actionsTable);
         scrollActions.setBorder(createTitledBorder("ACTIONS DISPONIBLES EN TEMPS RÉEL", FG_LIGHT));
         
-        // Listener pour la sélection de ligne (pour le graphique et les boutons)
+        //Listener pour la sélection de ligne (pour le graphique et les boutons)
         actionsTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && actionsTable.getSelectedRow() != -1) {
                 handleActionSelection(actionsTable.getSelectedRow());
             }
         });
         
-        // 2. Panneau de droite (Graphique + Interaction)
+        //Panneau de droite (Graphique + Interaction)
         JPanel eastPanel = new JPanel(new BorderLayout(10, 10));
         eastPanel.setPreferredSize(new Dimension(550, 0));
         eastPanel.setBackground(BG_DARK);
@@ -363,7 +351,7 @@ public class ClientGUI extends JFrame {
         graphiquePanel.setPreferredSize(new Dimension(450, 400)); 
         graphiquePanel.setBorder(createTitledBorder("HISTORIQUE (Sélectionnez une action)", FG_LIGHT));
         
-        // Panneau d'interaction (Acheter/Vendre)
+        //Panneau d'interaction (Acheter/Vendre)
         interactionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         interactionPanel.setBackground(BG_MEDIUM.darker());
         interactionPanel.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
@@ -385,7 +373,7 @@ public class ClientGUI extends JFrame {
         eastPanel.add(graphiquePanel, BorderLayout.CENTER);
         eastPanel.add(interactionPanel, BorderLayout.SOUTH);
         
-        // Assemblage final du Market Panel
+        //Assemblage final du Market Panel
         marketPanel.add(scrollActions, BorderLayout.CENTER);
         marketPanel.add(eastPanel, BorderLayout.EAST);
         
@@ -398,22 +386,22 @@ public class ClientGUI extends JFrame {
         portefeuillePanel.setBackground(BG_DARK);
         portefeuillePanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // 1. Tableau des actions détenues
+        //Tableau des actions détenues
         portefeuilleTableModel = new PortefeuilleTableModel();
         portefeuilleTable = new JTable(portefeuilleTableModel);
         
-        // Style du JTable
+        //Style du JTable
         portefeuilleTable.setFont(FONT_MONO);
         portefeuilleTable.setBackground(BG_MEDIUM);
         portefeuilleTable.setForeground(FG_LIGHT);
         portefeuilleTable.setSelectionBackground(BG_MEDIUM.brighter());
         portefeuilleTable.setRowHeight(25);
         
-        // centrer et colorer
+        //centrer et colorer
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
         rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
         
-        // variation de prix (colonne 5)
+        //variation de prix (colonne 5)
         DefaultTableCellRenderer variationRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
@@ -434,7 +422,7 @@ public class ClientGUI extends JFrame {
             }
         };
 
-        // Application des renderers
+        //Application des renderers
         for (int i = 1; i <= 4; i++) {
             portefeuilleTable.getColumnModel().getColumn(i).setCellRenderer(rightRenderer);
         }
@@ -445,41 +433,31 @@ public class ClientGUI extends JFrame {
 
         portefeuillePanel.add(scrollPortefeuille, BorderLayout.CENTER);
         
-        // ajouter ici un panneau pour l'historique des transactions A FAIRE
-        
         return portefeuillePanel;
     }
     
     
-    // ==========================================================
-    // LOGIQUE DE MISE À JOUR & D'INTERACTION
-    // ==========================================================
+   // MAJ et Interactions
     
-    
-     // Gère la déconnexion et le retour à l'écran de connexion.
-     
+    // Gère la déconnexion et le retour à l'écran de connexion
     private void handleDisconnection() {
         if (client != null) {
-             // Supposons une méthode pour arrêter le thread dans Client.java
-             
             client.sauvegarderClient(); 
             client.deconnecter();
             //Nettoyer la sélection du marché après la déconnexion
             actionsTable.getSelectionModel().clearSelection();
             actionGraphiqueCourante = null; 
-
             setSimulatorState(false);
-            JOptionPane.showMessageDialog(this, "Déconnexion du marché réussie. Consultation du portefeuille en mode Hors-Ligne.");
+            JOptionPane.showMessageDialog(this, "Déconnexion du marché réussie, consultation du portefeuille en mode Hors-Ligne");
 
 
         }
     }
 
     
-     //Gère la sélection d'une ligne dans le JTable des actions disponibles.
-     
+    //Gère la sélection d'une ligne dans le JTable des actions disponibles
     private void handleActionSelection(int selectedRow) {
-        // Convertit l'index de vue en index de modèle (nécessaire si le tri est activé)
+        // Convertit l'index de vue en index de modèle 
         int modelRow = actionsTable.convertRowIndexToModel(selectedRow);
         ActionStock as = actionTableModel.getActionStockAt(modelRow);
         
@@ -487,19 +465,19 @@ public class ClientGUI extends JFrame {
         
         Action a = as.action;
         
-        // 1. Mise à jour du graphique
+        //Mise à jour du graphique
         actionGraphiqueCourante = a;
         graphiquePanel.setHistorique(a.getHistoriqueValeurs());
         graphiquePanel.setBorder(createTitledBorder("HISTORIQUE DE " + a.getNom(), FG_LIGHT));
         
-        // 2. Mise à jour du panneau d'interaction
+        //Mise à jour du panneau d'interaction
         actionSelectionLabel.setText(String.format("Action: %s (%.2f €) | Stock Marché: %d", 
                                                     a.getNom(), a.getPrix(), as.stock));
         
         acheterBtn.setEnabled(as.stock > 0); 
         vendreBtn.setEnabled(true);
         
-        // Retrait des anciens listeners 
+        //Retrait des anciens listeners 
         for (java.awt.event.ActionListener al : acheterBtn.getActionListeners()) {
             acheterBtn.removeActionListener(al);
         }
@@ -507,7 +485,7 @@ public class ClientGUI extends JFrame {
             vendreBtn.removeActionListener(al);
         }
 
-        // Ajout des nouveaux listeners ( Achat/Vente)
+        //Ajout des nouveaux listeners (Achat/Vente)
         acheterBtn.addActionListener(e -> {
             boolean marketUpdateNeeded = client.demanderAchat(a, 1);
             if (marketUpdateNeeded) {
@@ -527,13 +505,13 @@ public class ClientGUI extends JFrame {
 
 
     
-     //Met à jour le bandeau, la table des actions et le portefeuille.
+    //Met à jour le bandeau, la table des actions et le portefeuille.
      
     public void updateSimulatorDisplay() {
         // Impossible si pas de client
         if (client == null) return;
 
-        // --- 1. SÉCURISATION DES RÉFÉRENCES (Garanti non-null) ---
+        // Sécuriser les references (Garanti non-null)
         Portefeuille portefeuilleClient = client.getPortefeuille();
     
         // Sécurisation du portefeuille client (la Map interne)
@@ -551,7 +529,7 @@ public class ClientGUI extends JFrame {
         }
         // --------------------------------------------------------
 
-        // --- 2. CALCULS SÉCURISÉS (Utilisation de portefeuilleClient après vérification) ---
+        //Calculs securisés (Utilisation de portefeuilleClient après vérification)
     
         // Détermination sécurisée du solde et de la valeur (si portefeuilleClient est null, solde = 0)
         double soldeDispo = 0.0;
@@ -565,13 +543,14 @@ public class ClientGUI extends JFrame {
                 valeurTotale = soldeDispo + portefeuilleClient.getValeurPortefeuille();
             } else {
                 // Si hors-ligne, la valeur totale est basée uniquement sur le solde
+                // (Pour ne pas inidquer une fausse valeur si les prix ont chuté/augmenté après la deconnexion)
                 valeurTotale = soldeDispo;
             }
         }
     
-        // --- 3. MISE À JOUR DE LA GUI ---
+        //MAJ GUI
 
-        // 1. Mise à jour du Bandeau
+        //Mise à jour du Bandeau
         if (!stockMarche.isEmpty() && portefeuilleClient != null) {
             // En ligne : Afficher la valeur totale réelle
             soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: %.2f €", soldeDispo, valeurTotale));
@@ -580,12 +559,12 @@ public class ClientGUI extends JFrame {
             soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: N/A (Hors-Ligne)", soldeDispo));
         }
     
-        // 2. Mise à jour de la Table des actions disponibles
+        // Mise à jour de la Table des actions disponibles
         actionTableModel.setData(stockMarche);
     
-        // 3. Mise à jour de la Table du Portefeuille (clientPortefeuille est garanti non-null)
+        // Mise à jour de la Table du Portefeuille (clientPortefeuille est garanti non-null)
         portefeuilleTableModel.setData(clientPortefeuille, stockMarche);
-        // 4. Mise à jour du graphique en temps réel (si une action est sélectionnée)
+        // Mise à jour du graphique en temps réel (si une action est sélectionnée)
         if (actionGraphiqueCourante != null) {
             Action updatedAction = stockMarche.keySet().stream()
                 .filter(a -> a.getNom().equals(actionGraphiqueCourante.getNom()))
@@ -611,9 +590,7 @@ public class ClientGUI extends JFrame {
         repaint();
     }
     
-    // ==========================================================
-    // MÉTHODES ADDITIONNELLES
-    // ==========================================================
+    //Méthodes additionelles
 
     //Bordure titrée stylée
     private Border createTitledBorder(String title, Color color) {
@@ -627,14 +604,11 @@ public class ClientGUI extends JFrame {
     }
     
 
+//Classe interne panneau pour graphique
 
-//==================================================
-// CLASSE INTERNE 1 : Le panneau pour le graphique 
-//==================================================
-
-// Rendu 'static' pour couper le lien implicite avec l'instance ClientGUI (qui herite d'une classe serializable)
+// Rendu static pour couper le lien implicite avec l'instance ClientGUI (qui herite d'une classe serializable)
 // Ceci évite des avertissements de sérialisation + solidifie la securité 
-// (On ne gère pas vraiment la mémoire on a surtout voulu éviter les warnings ici)
+// (On ne gère pas vraiment la mémoire, on a surtout voulu éviter les warnings ici)
 static class GraphiquePrix extends JPanel {
     
     private static final long serialVersionUID = 1L;
@@ -666,7 +640,7 @@ static class GraphiquePrix extends JPanel {
         //On veut au moins 2 points
         if (historique == null || historique.size() < 2) {
             g2d.setColor(ClientGUI.FG_LIGHT);
-            g2d.drawString("Sélectionnez une action ou en attente de données (min 2 points).", MARGIN, getHeight() / 2);
+            g2d.drawString("Sélectionnez une action ou en attente de données (min 2 points)", MARGIN, getHeight() / 2);
             return;
         }
 
@@ -740,9 +714,8 @@ static class GraphiquePrix extends JPanel {
 }
 
 
-//==============================================================
-// CLASSES INTERNES 2 et 3 : Modèle de données pour le JTable des Actions disponibles
-//==============================================================
+// classes internes pour modèle de données et pour le JTable des Actions disponibles
+
 
 static class ActionStock {
     public final Action action;
@@ -755,9 +728,7 @@ static class ActionStock {
     }
 }
 
-// Rendu 'static' pour couper le lien implicite avec l'instance ClientGUI (qui herite d'une classe serializable)
-// Ceci évite des avertissements de sérialisation + solidifie la securité 
-// (On ne gère pas vraiment la mémoire on a surtout voulu éviter les warnings ici)
+// Rendu static aussi pour les mêmes raisons que l'autre classe interne
 static class ActionTableModel extends AbstractTableModel {
 
     private static final long serialVersionUID = 1L;
@@ -776,7 +747,7 @@ static class ActionTableModel extends AbstractTableModel {
         fireTableDataChanged();
     }
 
-    //Vidr les données
+    //Vider les données
     public void clearData() {
         this.actionStocks = new ArrayList<>();
         fireTableDataChanged();
@@ -824,9 +795,8 @@ static class ActionTableModel extends AbstractTableModel {
     }
 }
 
-//==============================================================
-// CLASSE INTERNE 4 et 5 : Modèle de données pour le JTable du Portefeuille (Refonte)
-//==============================================================
+
+// classe interne pour modèle de données et pour pour le JTable du Portefeuille 
 
 static class ActionPortefeuille {
     public final Action action;
@@ -846,9 +816,7 @@ static class ActionPortefeuille {
     }
 }
 
-// Rendu 'static' pour couper le lien implicite avec l'instance ClientGUI (qui herite d'une classe serializable)
-// Ceci évite des avertissements de sérialisation + solidifie la securité 
-// (On ne gère pas vraiment la mémoire on a surtout voulu éviter les warnings ici)
+//static pour les mêmes raisons
 static class PortefeuilleTableModel extends AbstractTableModel {
     
     private static final long serialVersionUID = 1L;
@@ -861,7 +829,7 @@ static class PortefeuilleTableModel extends AbstractTableModel {
     
     
      //Met à jour les données du tableau avec la Map <Action, Quantité détenue> et les prix du marché.
-     //La Map stockMarche est utilisée pour récupérer l'objet Action le plus récent (avec les prix actuels).
+     //La Map stockMarche est utilisée pour récupérer l'objet Action le plus récent (avec les prix actuels)
      
     public void setData(Map<Action, Integer> portefeuilleDetenu, Map<Action, Integer> stockMarche) {
         this.actionsDetenues = portefeuilleDetenu.entrySet().stream()
