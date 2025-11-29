@@ -1,100 +1,121 @@
 #!/bin/bash
 
-#Variables et Fonctions de Nettoyage
-
+# --- Variables ---
 SERVER_PID=""
-CLIENTS_DIR="clients" # Dossier des sauvegardes clients
-SERVER_HIST_BIN="historique_binaire.ser" # Fichier d'historique binaire du Serveur
-SERVER_TRANS_TXT="transactions_lisibles.txt" # Fichier d'historique lisible du Serveur
+CLIENTS_DIR="clients"
+SERVER_HIST_BIN="historique_binaire.ser"
+SERVER_STOCK_BIN="stock_binaire.ser"
+SERVER_TRANS_TXT="transactions_lisibles.txt"
 
-# Fonction pour s'assurer que le serveur est tué à la fin
+# --- Fonction de Nettoyage (Appelée à la sortie - Trap) ---
 cleanup() {
     echo ""
-    echo "Début du Nettoyage"
+    echo "--- Arrêt du système ---"
     
-    # Arrêt du Serveur
     if [ -n "$SERVER_PID" ]; then
-        echo "Arrêt du Serveur (PID : $SERVER_PID)"
+        echo "Arrêt du processus Serveur (PID : $SERVER_PID)"
         kill -15 "$SERVER_PID" 2>/dev/null
-        sleep 2
+        sleep 1
         kill -9 "$SERVER_PID" 2>/dev/null
     fi
     
-    #Nettoyage du dossier des sauvegardes clients (fichiers .ser)
-    if [ -d "$CLIENTS_DIR" ]; then
-        echo "Nettoyage des sauvegardes clients dans le dossier '$CLIENTS_DIR'"
-        rm -rf "$CLIENTS_DIR"/*
+    if ls *.class 1> /dev/null 2>&1; then
+        rm -f *.class
     fi
     
-    # Suppression des fichiers d'historique du Serveur
-    echo "Suppression des fichiers d'historique du Serveur"
-    rm -f "$SERVER_HIST_BIN"
-    rm -f "$SERVER_TRANS_TXT"
-    
-    # Nettoyage des fichiers compilés (.class)
-    echo "Suppression des fichiers .class"
-    rm -f *.class
-    
-    echo "Nettoyage Terminé"
+    echo "Fermeture complète"
 }
 
-# Piège pour exécuter la fonction cleanup à la sortie du script
+# --- Fonction de Reset ---
+reset_data() {
+    echo ""
+    echo "ATTENTION : Réinitialisation complète (perte des clients et de l'historique de transactions, remise à 0 des stocks"
+    echo -n "Êtes-vous sûr ? (o/n) : "
+    read -r confirm
+    
+    if [ "$confirm" = "o" ]; then
+        if [ -n "$SERVER_PID" ]; then
+            echo "Arrêt immédiat du serveur"
+            kill "$SERVER_PID" 2>/dev/null
+            # On vide la variable pour que le 'cleanup' final ne tente pas de le retuer
+            SERVER_PID=""
+        fi
+
+        # on supprime les fichiers (maintenant que le serveur est mort)
+        echo "Suppression des fichiers de données"
+        rm -f "$SERVER_HIST_BIN"
+        rm -f "$SERVER_STOCK_BIN"
+        rm -f "$SERVER_TRANS_TXT"
+        if [ -d "$CLIENTS_DIR" ]; then
+            rm -rf "$CLIENTS_DIR"/*
+        fi
+        
+        echo "Données effacées avec succès"
+        return 0
+    else
+        echo "Annulation du reset"
+        return 1
+    fi
+}
+
+# Piège cleanup
 trap cleanup EXIT
 
-# Fonction pour afficher le menu
+# --- Fonction Menu ---
 afficher_menu() {
     echo ""
     echo "--- Menu de Gestion Serveur/Client ---"
-    echo "1) Lancer un nouveau Client (en arrière-plan)"
-    echo "2) Afficher l'état (processus Serveur/Clients Java)"
-    echo "3) Arrêter et Quitter (tue le Serveur)"
+    echo "1) Lancer un Client "
+    echo "2) Afficher l'état des processus Java"
+    echo "3) Arrêter et Quitter"
+    echo "4) Réinitialiser les données et quitter"
     echo "---------------------------------------"
     echo -n "Votre choix : "
 }
 
-#Compilation
-
-echo "Étape 1 : Compilation des fichiers Java"
-# Suppression des anciens fichiers .class
+# --- Compilation ---
+echo "Étape 1 : Compilation"
 rm -f *.class
 javac *.java
 
-#Lancement du Serveur en arrière-plan
+if [ $? -ne 0 ]; then
+    echo "Erreur de compilation"
+    exit 1
+fi
 
-echo "Étape 2 : Lancement du Serveur en arrière-plan"
-# Lance le serveur et stocke son PID
+# --- Lancement Serveur ---
+echo "Étape 2 : Lancement du Serveur"
 java Serveur &
 SERVER_PID=$!
-echo "Le Serveur a été lancé avec le PID : $SERVER_PID"
-
-# Petite pause pour s'assurer que le serveur est bien démarré
+echo "Serveur lancé (PID : $SERVER_PID)"
 sleep 2
 
-# Boucle du Menu Principal
-
+# --- Boucle Principale ---
 while true; do
     afficher_menu
     read -r choix
 
     case $choix in
         1)
-            echo "Lancement d'un nouveau Client (arrière-plan)"
-            # Lancement en arrière-plan
+            echo "Lancement Client"
             java Client &
-            CLIENT_PID=$!
-            echo "Client lancé avec le PID : $CLIENT_PID"
             ;;
         2)
-            echo "État des processus Java en cours"
-            # Affiche les processus java, y compris le serveur et les clients
+            echo "--- Processus Java ---"
             ps aux | grep java | grep -E 'Serveur|Client' | grep -v grep
             ;;
         3)
-            echo "Arrêt demandé, exécution du nettoyage et sortie"
-            exit 0 # Le trap EXIT va appeler cleanup()
+            exit 0
+            ;;
+        4)
+            reset_data
+            # $? nous dit si on reset ou pas
+            if [ $? -eq 0 ]; then
+                exit 0 # Quitte le script, ce qui déclenche le trap cleanup et kill le serveur
+            fi
             ;;
         *)
-            echo "Choix invalide, veuillez réessayer svp"
+            echo "Choix invalide"
             ;;
     esac
 done
