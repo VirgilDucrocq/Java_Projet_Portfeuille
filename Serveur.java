@@ -30,14 +30,14 @@ public class Serveur{
         return this.port;
     }
 
-    public List<Transaction> getHistoriqueTransactions() {
-        // Retourne une vue non modifiable pour éviter les modifications externes
+    public List<Transaction> getHistoriqueTransactions(){
+        // Retourne une vue non modifiable pour éviter les effets externes
         return Collections.unmodifiableList(historiqueTransactions);
     }
     
     public synchronized List<Action> getActions(){
-    // renvoyer une nouvelle liste pour éviter les modifications externes
-    // C'est juste une mesure de sécurité ici comme on va beaucoup toucher aux actions
+    // renvoyer une nouvelle liste pour éviter les modifications externes ici aussi
+    // (juste une mesure de sécurité ici comme on va beaucoup toucher aux actions dans la maj des prix)
         return new ArrayList<>(stockGlobal.keySet());
     }
 
@@ -51,8 +51,8 @@ public class Serveur{
             while (true){
                 //On accepte les clients sans limite de nombre, on les ajoute à la liste et on lance le thread
                 //de gestion de la connexion client-serveur pour le nouveau client
-                //On pourrait limiter l'afflux de client en fixant le max de client conectés (longueur de la liste)
-                //Afin d'éviter les attaques (DoS) mais ici pas besoin vu qu'on reste en local
+                //On pourrait limiter l'afflux de client en fixant le max de client conectés (longueur de la liste puis logique FIFO ou autre)
+                //Afin d'éviter les attaques (DoS) mais ici pas besoin vu qu'on reste en local 
                 Socket socketClient = socketServeur.accept();
                 ThreadClientServeur tcs = new ThreadClientServeur(socketClient, this);
                 clients.add(tcs);
@@ -71,7 +71,6 @@ public class Serveur{
         int qte = t.getQuantite();
 
         if (t.getTypeTransaction() == TypeTransaction.ACHAT){
-            // Assurez-vous que l'action est bien dans la map avant d'appeler get()
             Integer stockActuel = stockGlobal.getOrDefault(action, 0); 
             
             if (stockActuel >= qte){
@@ -81,7 +80,7 @@ public class Serveur{
                 t.setValide(false);
             }
         } else{ 
-            // Vente: on ajoute au stock, toujours valide
+            // si vente, on ajoute au stock, toujours valide
             Integer stockActuel = stockGlobal.getOrDefault(action, 0); 
             stockGlobal.put(action, stockActuel + qte);
             t.setValide(true);
@@ -90,56 +89,82 @@ public class Serveur{
         logTransactionLisible(t);
     }
 
-    // Méthode de sauvegarde
+
     // Méthode de sauvegarde (appelée par le Shutdown Hook)
-    public void sauvegarderHistorique() {
+    public void sauvegarderHistorique(){
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FICHIER_BINAIRE))) {
             // Sauvegarde la liste entière en une seule fois
             oos.writeObject(new ArrayList<>(historiqueTransactions)); 
             System.out.println("Historique des transactions sauvegardé sur le fichier binaire");
-        } catch (IOException e) {
+        }catch (IOException e){
             System.err.println("Erreur lors de la sauvegarde binaire de l'historique : " + e.getMessage());
         }
     }
 
     // Méthode de chargement (appelée au démarrage)
+    // On sait que le warning est inoffensif ici
     @SuppressWarnings("unchecked")
-    public void chargerHistorique() {
+    public void chargerHistorique(){
         File file = new File(FICHIER_BINAIRE);
-        if (file.exists()) {
-            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FICHIER_BINAIRE))) {
+        if (file.exists()){
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FICHIER_BINAIRE))){
                 List<Transaction> loadedList = (List<Transaction>) ois.readObject();
                 historiqueTransactions.addAll(loadedList);
                 System.out.println("Historique des transactions chargé (" + loadedList.size() + " entrées) depuis le binaire");
-            } catch (IOException | ClassNotFoundException e) {
+            }catch (IOException | ClassNotFoundException e){
                 System.err.println("Erreur lors du chargement de l'historique binaire : " + e.getMessage());
             }
         }
     }
 
-    public void logTransactionLisible(Transaction t) {
-        try (PrintWriter pw = new PrintWriter(new FileWriter(FICHIER_LOG_LISIBLE, true))) {
-            // Utilisation de ChronoUnit pour tronquer l'heure
+    public void logTransactionLisible(Transaction t){
+        try (PrintWriter pw = new PrintWriter(new FileWriter(FICHIER_LOG_LISIBLE, true))){
+            // Utilisation de ChronoUnit pour tronquer l'heure aux secondes
             String dateHeureTronquee = t.getDateHeure().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString();
             pw.println(t.toString());
-        } catch (IOException e) {
+        }catch (IOException e){
             System.err.println("Erreur lors de l'écriture du log lisible : " + e.getMessage());
         }
     }
     
     // Main du Serveur (création à la main en dur des actions disponibles (pourrait être mis dans une procédure
-    // avec une interface graphique style panneau de contrôle serveur)
+    // avec une interface graphique style panneau de contrôle serveur ou même une base de données style de ce qu'on a fait avec Clients)
     // Puis creéation d'une instance de serveur qui va appeler sa fonction démarrer et lancer le thread de mise à jour des prix
     public static void main(String[] args) throws IOException, InterruptedException{
         // Création des actions
         Action apple = new Action("Apple", 100, ActionType.VALEUR_TECH_CLASSIQUE);
         Action google = new Action("Google", 200, ActionType.INDICE_STABLE);
-        List<Action> actions = Arrays.asList(apple, google);
+        Action tesla = new Action("Tesla", 450, ActionType.VALEUR_TECH_CLASSIQUE); 
+        Action bitcoin = new Action("Bitcoin", 30000, ActionType.ACTION_VOLATILE_CRYPTO); 
+        Action meta = new Action("Meta", 150, ActionType.INDICE_STABLE);
+        Action obligationFR = new Action("Obligation FR", 50, ActionType.OBLIGATION_ETAT);
+        Action pfizer = new Action("Pfizer", 80, ActionType.INDICE_STABLE); // Stabilité
+        Action cac40 = new Action("CAC 40", 500, ActionType.INDICE_STABLE); // Indice européen
+        Action startupAI = new Action("Startup AI", 25, ActionType.ACTION_VOLATILE_CRYPTO); // Très forte volatilité et faible prix
+        Action or = new Action("Or Bullion", 1800, ActionType.INDICE_STABLE); // Matière première, stable/refuge
+        Action toyota = new Action("Toyota", 120, ActionType.VALEUR_TECH_CLASSIQUE); // Classique Automobile
+        Action obligationCorp = new Action("Obligation Corp", 65, ActionType.OBLIGATION_HAUT_RENDEMENT); 
+        Action cuivre = new Action("Cuivre", 90, ActionType.MATIERE_PREMIERE_INDUSTRIELLE);
+
+        List<Action> actions = Arrays.asList(apple, google,tesla,bitcoin,meta,obligationFR,pfizer,cac40,startupAI,or,toyota
+                                                ,obligationCorp,cuivre);
 
         // Stock initial côté serveur
         Map<Action, Integer> stockInitial = new HashMap<>();
         stockInitial.put(apple, 20);
         stockInitial.put(google, 20);
+        stockInitial.put(tesla, 15);      
+        stockInitial.put(bitcoin, 5);      
+        stockInitial.put(meta, 30);
+        stockInitial.put(obligationFR, 50);
+        stockInitial.put(pfizer, 25);
+        stockInitial.put(cac40, 10);      
+        stockInitial.put(startupAI, 100);   
+        stockInitial.put(or, 5);          
+        stockInitial.put(toyota, 20);
+        stockInitial.put(obligationCorp, 40); 
+        stockInitial.put(cuivre, 35);
+        
 
         // Création et démarrage du serveur
         Serveur serveur = new Serveur(5001, stockInitial);
@@ -147,7 +172,7 @@ public class Serveur{
         new Thread(() ->{serveur.demarrer();}).start();
         Thread.sleep(500);
 
-        // Lancement du thread de mise à jour des prix (toutes les 20 sec)
+        // Lancement du thread de mise à jour des prix (toutes les 2 sec)
         MajCoursThread majCours = new MajCoursThread(serveur, 2000); 
         new Thread(majCours).start();
         //Va recuperer juste avant la fermeture (Shutdown hook)
