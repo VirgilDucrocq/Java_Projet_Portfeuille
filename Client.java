@@ -84,29 +84,35 @@ public class Client implements Serializable{
                 this.stockDisponible = Collections.emptyMap();
             }
 
-            if (!this.stockDisponible.isEmpty() && !this.portefeuille.getPortefeuille().isEmpty()) {
-            
-                // Itérer sur les actions détenues par le client (clés de la map portefeuille)
-                for (Action actionDetenue : this.portefeuille.getPortefeuille().keySet()) {
-                
-                    // On récupère l'instance Action à jour depuis la map marché (stockDisponible)
-                    Action actionMarche = this.stockDisponible.keySet().stream()
-                        .filter(a -> a.equals(actionDetenue)) // Grâce à l'equals() basé sur le nom
-                        .findFirst()
-                        .orElse(null); 
-                
-                    if (actionMarche != null) {
-                        // Mettre à jour le prix de l'objet Action qui est la clé dans le portefeuille.
-                        actionDetenue.setPrix(actionMarche.getPrix());
-                    }
-                }
-            }
-
         } catch (Exception e){
             //Balise test
             System.err.println("Erreur lors de la récupération des actions : " + e.getMessage());
             this.stockDisponible = Collections.emptyMap();
         }
+    }
+    
+    public double getValeurTotalePortefeuilleTempsReel() {
+        double valeurTotale = 0.0;
+        Map<Action, Integer> monPortefeuille = this.portefeuille.getPortefeuille();
+
+        if (monPortefeuille.isEmpty() || this.stockDisponible.isEmpty()) {
+            return 0.0;
+        }
+
+        for (Map.Entry<Action, Integer> entree : monPortefeuille.entrySet()) {
+            Action actionPossedee = entree.getKey();
+            int quantite = entree.getValue();
+
+            // On cherche le prix actuel dans stockDisponible
+            double prixActuel = this.stockDisponible.keySet().stream()
+                .filter(a -> a.getNom().equals(actionPossedee.getNom()))
+                .map(Action::getPrix)
+                .findFirst()
+                .orElse(0.0); //0 si erreur (cas hors ligne)
+            
+            valeurTotale += prixActuel * quantite;
+        }
+        return valeurTotale;
     }
 
     //fonction principale pour se connecter au serveur 
