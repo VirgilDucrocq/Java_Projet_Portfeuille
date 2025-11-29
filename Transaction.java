@@ -8,13 +8,13 @@ import java.time.temporal.ChronoUnit;
 //Serializable car c'est ce qu'on va majoritairement s'envoyer à travers le reseau 
 public class Transaction implements Serializable{
     
-    //Attributs
+    //Attributs (beaucoup en final car immuables, on ne les modifiera pas)
     private static final long serialVersionUID = 1L;
-    private int quantite;
-    private TypeTransaction typeTransaction;
-    private LocalDateTime dateHeure;
-    private String clientNom ;         
-    private Action action; 
+    private final int quantite;
+    private final TypeTransaction typeTransaction;
+    private final LocalDateTime dateHeure;
+    private final String clientNom ;         
+    private final Action action; 
     private boolean valide ;
 
     //Constructeur (pas de constructeur sans paramètres, on doit bien tout spécifier)
@@ -52,18 +52,8 @@ public class Transaction implements Serializable{
         return valide; 
     }
   
-    //Setters
-    public void setQuantite(int quantite){
-        this.quantite = quantite;
-    }
-
-    public void setTypeTransaction(TypeTransaction typeTransaction){
-        this.typeTransaction = typeTransaction;
-    }
-
-    public void setDateHeure(LocalDateTime dateHeure){
-        this.dateHeure = dateHeure;
-    }
+    //Setters (pas de setter à part valide, une transaction ne doit pas 
+    //être modifiée après création)
 
     public void setValide(boolean valide){
         this.valide = valide;
