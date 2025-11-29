@@ -27,12 +27,12 @@ cleanup() {
     fi
     
     # Suppression des fichiers d'historique du Serveur
-    echo "Suppression des fichiers d'historique du Serveur..."
+    echo "Suppression des fichiers d'historique du Serveur"
     rm -f "$SERVER_HIST_BIN"
     rm -f "$SERVER_TRANS_TXT"
     
     # Nettoyage des fichiers compilés (.class)
-    echo "Suppression des fichiers .class..."
+    echo "Suppression des fichiers .class"
     rm -f *.class
     
     echo "Nettoyage Terminé"
