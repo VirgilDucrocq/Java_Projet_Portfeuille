@@ -11,12 +11,11 @@ public class Portefeuille implements Serializable{
     private static final long serialVersionUID = 1L;
     private Client proprietaire;
     private double soldeDispo;
-    //On n'envoie pas de map
     private Map<Action, Integer> portefeuille = new HashMap<>(); // Action + Quantité
 
     // Constructeur
-    // On initialise le proprietaire en dehors comme c'est lui qui va 
-    // Creer le portefeuille on va avoir un potentiel this-escape
+    // On rattache le proprietaire au portefeuille en dehors du consructeur comme c'est une instance client qui va 
+    // appeler la création du portefeuille on aurait un potentiel "this-escape" sinon
     public Portefeuille(double soldeInitial){
         if (soldeInitial < 0) {
             throw new IllegalArgumentException("Le solde initial doit être positif");
@@ -62,6 +61,7 @@ public class Portefeuille implements Serializable{
 
     // Setter
 
+    //Rattachement du proprio
     public void setProprietaire(Client client){
         this.proprietaire = client;
     }
@@ -73,7 +73,7 @@ public class Portefeuille implements Serializable{
     // Méthodes
     public synchronized void ajouterAction(Action action, int quantite){
         if (quantite <= 0){
-            throw new IllegalArgumentException("La quantité doit être stt positive");
+            throw new IllegalArgumentException("La quantité doit être > 0");
         }
         //Si on en a déjà on rajoute sinon on crée la quantité
         portefeuille.put(action, portefeuille.containsKey(action) ? portefeuille.get(action) + quantite : quantite);
