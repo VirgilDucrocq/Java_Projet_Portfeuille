@@ -3,7 +3,7 @@ import java.net.*;
 import java.util.*;
 
 //gestion de l'écoute (demande d'achat/vente) et de l'envoie des prix, mis à jour par le serveur, avec le client
-public class ThreadClientServeur implements Runnable {
+public class ThreadClientServeur implements Runnable{
 
     private Socket socket;
     private Serveur serveur;
@@ -25,23 +25,21 @@ public class ThreadClientServeur implements Runnable {
     public void run(){
         try {
             boolean nomRecu = false; // Flag pour s'assurer que le nom est bien défini
-            while (true) {
+            while (true){
                 Object obj = fluxEntree.readObject();
 
-                if (obj instanceof String cmd) {
+                if (obj instanceof String cmd){
                 
-                    if (!nomRecu) {
-                        // 1. C'est le premier String reçu, c'est le nom.
+                    if (!nomRecu){
+                        // Si c'est le premier String reçu, c'est le nom 
                         this.clientNom = cmd;
                         nomRecu = true;
-                        System.out.println("Client connecté : " + this.clientNom);
-                    
-                        // On ne répond rien, le client est juste identifié.
+                        // On ne répond rien, le client est juste identifié
                         continue; 
                     } 
                 
-                    // 2. C'est une commande (ex: GET_ACTIONS)
-                    if (cmd.equals("GET_ACTIONS")) {
+                    // Sinon c'est que c'est une commande (on vérifie que c'est bien la seule qu'on ait)
+                    if (cmd.equals("GET_ACTIONS")){
                         fluxSortie.reset();
                         fluxSortie.writeObject(new HashMap<>(serveur.getStockGlobal())); 
                         fluxSortie.flush();
@@ -49,7 +47,7 @@ public class ThreadClientServeur implements Runnable {
                     }
             }
 
-                if (obj instanceof Transaction t) {
+                if (obj instanceof Transaction t){
                     //Balises de contrôle depuis le terminal
                     //System.out.println("[Serveur] Reçu: " + t);
                     fluxSortie.reset();
@@ -61,12 +59,12 @@ public class ThreadClientServeur implements Runnable {
 
                 
             }
-        } catch (IOException | ClassNotFoundException e) {
+        }catch (IOException | ClassNotFoundException e){
             // Affichage du nom mémorisé (ou de la valeur par défaut si jamais rien n'a été reçu)
             System.out.println("Client (" + this.clientNom + ") déconnecté");
-            try {
+            try{
                 socket.close();
-            } catch (IOException closeE) {
+            } catch (IOException closeE){
                 System.err.println("Erreur lors de la fermeture de la socket : " + closeE.getMessage());
             }
         }
