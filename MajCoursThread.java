@@ -45,8 +45,8 @@ public class MajCoursThread implements Runnable{
                 synchronized (serveur.getStockGlobal()){ // Accès synchronisé à la ressource du Serveur
                     // On récupère la liste d'actions via le getter du Serveur
                     for (Action action : serveur.getActions()){ 
-                        double mu = action.getMu(); // Puis des paramètres avec le getter d'Action
-                        double sigma = action.getSigma();
+                        double mu = action.getTypeAction().getMu(); // Puis des paramètres avec le getter d'ActionType dans Action
+                        double sigma = action.getTypeAction().getSigma();
 
                         double nouveauPrix = Math.floor(100*calculerNouveauPrix(action.getPrix(), mu, sigma, dtAnnee)) / 100.0;
 
