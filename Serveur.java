@@ -12,8 +12,9 @@ public class Serveur{
     private final List<Transaction> historiqueTransactions = Collections.synchronizedList(new ArrayList<>());
     //Fichier binaire pour charger les données
     private static final String FICHIER_BINAIRE = "historique_binaire.ser"; 
-    // Fichier Texte (Lisible) pour le log de débogage
+    // Fichier Texte (Lisible) pour le log de transactions
     private static final String FICHIER_LOG_LISIBLE = "transactions_lisibles.txt";
+    private static final String FICHIER_STOCK = "stock_binaire.ser";
 
     //Constructeur port + stock de base
     public Serveur(int port, Map<Action, Integer> stockInitial){
@@ -126,6 +127,28 @@ public class Serveur{
             System.err.println("Erreur lors de l'écriture du log lisible : " + e.getMessage());
         }
     }
+
+    public void sauvegarderStock() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FICHIER_STOCK))) {
+            oos.writeObject(stockGlobal); // On écrit la Map entière directement
+            System.out.println("État du stock sauvegardé dans " + FICHIER_STOCK);
+        } catch (IOException e) {
+            System.err.println("Erreur sauvegarde stock : " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Map<Action, Integer> chargerStockDepuisFichier() {
+        File file = new File(FICHIER_STOCK);
+        if (file.exists()) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FICHIER_STOCK))) {
+                return (Map<Action, Integer>) ois.readObject();
+            } catch (IOException | ClassNotFoundException e) {
+                System.err.println("Erreur chargement stock : " + e.getMessage());
+            }
+        }
+        return null; // Retourne null si pas de fichier ou erreur
+    }
     
     // Main du Serveur (création à la main en dur des actions disponibles (pourrait être mis dans une procédure
     // avec une interface graphique style panneau de contrôle serveur ou même une base de données style de ce qu'on a fait avec Clients)
@@ -146,25 +169,27 @@ public class Serveur{
         Action obligationCorp = new Action("Obligation Corp", 65, ActionType.OBLIGATION_HAUT_RENDEMENT); 
         Action cuivre = new Action("Cuivre", 90, ActionType.MATIERE_PREMIERE_INDUSTRIELLE);
 
-        List<Action> actions = Arrays.asList(apple, google,tesla,bitcoin,meta,obligationFR,pfizer,cac40,startupAI,or,toyota
-                                                ,obligationCorp,cuivre);
-
-        // Stock initial côté serveur
-        Map<Action, Integer> stockInitial = new HashMap<>();
-        stockInitial.put(apple, 20);
-        stockInitial.put(google, 20);
-        stockInitial.put(tesla, 15);      
-        stockInitial.put(bitcoin, 5);      
-        stockInitial.put(meta, 30);
-        stockInitial.put(obligationFR, 50);
-        stockInitial.put(pfizer, 25);
-        stockInitial.put(cac40, 10);      
-        stockInitial.put(startupAI, 100);   
-        stockInitial.put(or, 5);          
-        stockInitial.put(toyota, 20);
-        stockInitial.put(obligationCorp, 40); 
-        stockInitial.put(cuivre, 35);
+        Map<Action, Integer> stockInitial = Serveur.chargerStockDepuisFichier();
         
+        if (stockInitial == null) {
+            System.out.println("Aucune sauvegarde de stock trouvée, initialisation par défaut");
+            stockInitial = new HashMap<>();
+            stockInitial.put(apple, 20);
+            stockInitial.put(google, 20);
+            stockInitial.put(tesla, 15);      
+            stockInitial.put(bitcoin, 5);      
+            stockInitial.put(meta, 30);
+            stockInitial.put(obligationFR, 50);
+            stockInitial.put(pfizer, 25);
+            stockInitial.put(cac40, 10);      
+            stockInitial.put(startupAI, 100);   
+            stockInitial.put(or, 5);          
+            stockInitial.put(toyota, 20);
+            stockInitial.put(obligationCorp, 40); 
+            stockInitial.put(cuivre, 35);
+        }else {
+            System.out.println("Stock restauré depuis la dernière sauvegarde !");
+        }
 
         // Création et démarrage du serveur
         Serveur serveur = new Serveur(5001, stockInitial);
@@ -178,6 +203,7 @@ public class Serveur{
         //Va recuperer juste avant la fermeture (Shutdown hook)
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
         serveur.sauvegarderHistorique();
+        serveur.sauvegarderStock();
         }));
     }
 }
