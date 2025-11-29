@@ -2,6 +2,10 @@ import java.util.ArrayList;
 import java.io.*;
 import java.util.Objects;
 
+//###############
+//#Classe Action#
+//###############
+
 //Serializable car on va avoir besoin de les transférer via réseau (actions inlues dans les transactions)
 public class Action implements Serializable{
     
@@ -44,13 +48,6 @@ public class Action implements Serializable{
         return this.historiqueValeurs;
     }
 
-    public double getMu(){
-        return typeAction.getMu();
-    }
-
-    public double getSigma(){
-        return typeAction.getSigma();
-    }
     
     public ActionType getTypeAction(){
         return typeAction;
