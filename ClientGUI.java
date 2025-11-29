@@ -423,10 +423,10 @@ public class ClientGUI extends JFrame{
         };
 
         //Application des renderers
-        for (int i = 1; i <= 4; i++) {
+        for (int i = 1; i <= 5; i++) {
             portefeuilleTable.getColumnModel().getColumn(i).setCellRenderer(rightRenderer);
         }
-        portefeuilleTable.getColumnModel().getColumn(5).setCellRenderer(variationRenderer);
+        portefeuilleTable.getColumnModel().getColumn(6).setCellRenderer(variationRenderer);
 
         JScrollPane scrollPortefeuille = new JScrollPane(portefeuilleTable);
         scrollPortefeuille.setBorder(createTitledBorder("ACTIONS DÉTENUES", FG_LIGHT));
@@ -508,13 +508,11 @@ public class ClientGUI extends JFrame{
     //Met à jour le bandeau, la table des actions et le portefeuille.
      
     public void updateSimulatorDisplay() {
-        // Impossible si pas de client
         if (client == null) return;
 
-        // Sécuriser les references (Garanti non-null)
         Portefeuille portefeuilleClient = client.getPortefeuille();
-    
-        // Sécurisation du portefeuille client (la Map interne)
+        
+        // Sécurisations (identique à avant)
         Map<Action, Integer> clientPortefeuille;
         if (portefeuilleClient == null || portefeuilleClient.getPortefeuille() == null) {
             clientPortefeuille = Collections.emptyMap(); 
@@ -522,50 +520,52 @@ public class ClientGUI extends JFrame{
             clientPortefeuille = portefeuilleClient.getPortefeuille();
         }
 
-        // Sécurisation du stock marché
         Map<Action, Integer> stockMarche = client.getDernierStockDisponible();
-        if (stockMarche == null) {
-            stockMarche = Collections.emptyMap();
-        }
-        // --------------------------------------------------------
+        if (stockMarche == null) stockMarche = Collections.emptyMap();
 
-        //Calculs securisés (Utilisation de portefeuilleClient après vérification)
-    
-        // Détermination sécurisée du solde et de la valeur (si portefeuilleClient est null, solde = 0)
+        // --- CALCULS ---
         double soldeDispo = 0.0;
         double valeurTotale = 0.0;
+        double plusValueLatente = 0.0; // Gain ou perte potentiel
+        boolean enLigne = !stockMarche.isEmpty();
 
         if (portefeuilleClient != null) {
-        soldeDispo = portefeuilleClient.getSoldeDispo();
-        
-        // Calculer la valeur totale uniquement si nous avons des données marché (pour getValeurPortefeuille)
-        if (!stockMarche.isEmpty()) {
-                valeurTotale = soldeDispo + portefeuilleClient.getValeurPortefeuille();
+            soldeDispo = portefeuilleClient.getSoldeDispo();
+            
+            if (enLigne) {
+                // 1. Valeur de revente actuelle
+                double valeurActionsActuelle = client.getValeurTotalePortefeuilleTempsReel();
+                // 2. Coût d'achat total (Investissement)
+                double coutInvestissement = portefeuilleClient.getMontantTotalInvesti();
+                
+                valeurTotale = soldeDispo + valeurActionsActuelle;
+                plusValueLatente = valeurActionsActuelle - coutInvestissement;
+                
             } else {
-                // Si hors-ligne, la valeur totale est basée uniquement sur le solde
-                // (Pour ne pas inidquer une fausse valeur si les prix ont chuté/augmenté après la deconnexion)
                 valeurTotale = soldeDispo;
             }
         }
     
-        //MAJ GUI
-
-        //Mise à jour du Bandeau
-        if (!stockMarche.isEmpty() && portefeuilleClient != null) {
-            // En ligne : Afficher la valeur totale réelle
-            soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: %.2f €", soldeDispo, valeurTotale));
+        // --- MISE A JOUR BANDEAU ---
+        if (enLigne && portefeuilleClient != null) {
+            // Affichage avec la Plus-Value en couleur (HTML pour colorer juste une partie du texte)
+            String colorHex = (plusValueLatente >= 0) ? "#00FF00" : "#FF3C3C"; // Vert ou Rouge
+            String sign = (plusValueLatente >= 0) ? "+" : "";
+            
+            String textHtml = String.format("<html>Solde: %.2f € | Patrimoine: %.2f € (<span style='color:%s'>%s%.2f €</span>)</html>", 
+                                            soldeDispo, valeurTotale, colorHex, sign, plusValueLatente);
+            soldeLabel.setText(textHtml);
+            
         } else {
-            // Hors-ligne ou portefeuille null : Afficher seulement le solde disponible
-            soldeLabel.setText(String.format("Solde Disponible: %.2f € | Valeur Totale: N/A (Hors-Ligne)", soldeDispo));
+            soldeLabel.setText(String.format("Solde Disponible: %.2f € | Hors-Ligne", soldeDispo));
         }
     
-        // Mise à jour de la Table des actions disponibles
+        // Mise à jour des Tables (Reste identique)
         actionTableModel.setData(stockMarche);
-    
-        // Mise à jour de la Table du Portefeuille (clientPortefeuille est garanti non-null)
         portefeuilleTableModel.setData(clientPortefeuille, stockMarche);
-        // Mise à jour du graphique en temps réel (si une action est sélectionnée)
-        if (actionGraphiqueCourante != null) {
+        
+        // Mise à jour du graphique (Reste identique)
+        if (actionGraphiqueCourante != null && enLigne) {
             Action updatedAction = stockMarche.keySet().stream()
                 .filter(a -> a.getNom().equals(actionGraphiqueCourante.getNom()))
                 .findFirst()
@@ -576,8 +576,7 @@ public class ClientGUI extends JFrame{
                 graphiquePanel.setHistorique(actionGraphiqueCourante.getHistoriqueValeurs());
                 graphiquePanel.setBorder(createTitledBorder("HISTORIQUE DE " + actionGraphiqueCourante.getNom(), FG_LIGHT));
                 
-                 int currentStock = stockMarche.getOrDefault(updatedAction, 0);
-
+                int currentStock = stockMarche.getOrDefault(updatedAction, 0);
                 actionSelectionLabel.setText(String.format("Action: %s (%.2f €) | Stock Marché: %d", 
                                                             actionGraphiqueCourante.getNom(), 
                                                             actionGraphiqueCourante.getPrix(),
@@ -799,104 +798,101 @@ static class ActionTableModel extends AbstractTableModel {
 // classe interne pour modèle de données et pour pour le JTable du Portefeuille 
 
 static class ActionPortefeuille {
-    public final Action action;
-    public final int quantite;
-    public final double prixAchat;
-    public final double valeurActuelle;
-    public final double variation; // Variation % ou abs par rapport au prix d'achat
+        public final Action action;
+        public final int quantite;
+        public final double prixAchatMoyen; // = PRU
+        public final double valeurInvestie; // Ce que ça a coûté
+        public final double valeurActuelle; // Ce que ça vaut maintenant
+        public final double variation;      // Gain/Perte en %
 
-    //constructeur
-    public ActionPortefeuille(Action action, int quantite, double prixAchat, double prixActuel) {
-        this.action = action;
-        this.quantite = quantite;
-        this.prixAchat = prixAchat;
-        this.valeurActuelle = prixActuel * quantite;
-        // Calcul de la variation en pourcentage
-        this.variation = (prixActuel / prixAchat - 1.0) * 100.0;
+        public ActionPortefeuille(Action action, int quantite, double prixAchatMoyen, double prixActuel) {
+            this.action = action;
+            this.quantite = quantite;
+            this.prixAchatMoyen = prixAchatMoyen;
+            
+            // Calculs
+            this.valeurInvestie = prixAchatMoyen * quantite;
+            this.valeurActuelle = prixActuel * quantite;
+            
+            // Calcul de la variation en pourcentage
+            if (prixAchatMoyen > 0) {
+                this.variation = (prixActuel / prixAchatMoyen - 1.0) * 100.0;
+            } else {
+                this.variation = 0.0;
+            }
+        }
     }
-}
 
 //static pour les mêmes raisons
 static class PortefeuilleTableModel extends AbstractTableModel {
-    
-    private static final long serialVersionUID = 1L;
-    transient private List<ActionPortefeuille> actionsDetenues;
-    private final String[] columnNames = {"Action", "Quantité", "Prix Achat (€)", "Prix Actuel (€)", "Valeur Totale (€)", "Variation (%)"};
-    
-    public PortefeuilleTableModel() {
-        this.actionsDetenues = new ArrayList<>(); 
-    }
-    
-    
-     //Met à jour les données du tableau avec la Map <Action, Quantité détenue> et les prix du marché.
-     //La Map stockMarche est utilisée pour récupérer l'objet Action le plus récent (avec les prix actuels)
-     
-    public void setData(Map<Action, Integer> portefeuilleDetenu, Map<Action, Integer> stockMarche) {
-        this.actionsDetenues = portefeuilleDetenu.entrySet().stream()
-                .filter(entry -> entry.getValue() > 0)
-                .map(entry -> {
-                    Action actionDetenue = entry.getKey();
-                    int quantite = entry.getValue();
-                    
-                    // Trouver l'action correspondante dans le stock marché pour le prix actuel
-                    Action actionMarche = stockMarche.keySet().stream()
-                        .filter(a -> a.getNom().equals(actionDetenue.getNom()))
-                        .findFirst()
-                        .orElse(actionDetenue); // Utilise l'ancienne si non trouvée (normalment n'arrive pas)
-                        
-                    double prixAchatSupposed = actionDetenue.getPrix(); 
-                    
-                    return new ActionPortefeuille(
-                        actionMarche, 
-                        quantite, 
-                        prixAchatSupposed, // Le prix de la première transaction d'achat est utilisé ici
-                        actionMarche.getPrix()
-                    );
-                })
-                .sorted(Comparator.comparing(ap -> ap.action.getNom()))
-                .collect(Collectors.toList());
-        fireTableDataChanged();
-    }
-    
-    public void clearData() {
-        this.actionsDetenues = new ArrayList<>();
-        fireTableDataChanged();
-    }
-
-    
-    public int getRowCount() {
-        return actionsDetenues.size();
-    }
-
-
-    public int getColumnCount() {
-        return columnNames.length;
-    }
-
-  
-    public String getColumnName(int col) {
-        return columnNames[col];
-    }
-  
-    public Class<?> getColumnClass(int columnIndex) {
-        if (columnIndex >= 1) return Double.class; // Quantité, prix, valeur, variation sont des nombres
-        return String.class; 
-    }
-
-    
-    public Object getValueAt(int rowIndex, int columnIndex) {
-        ActionPortefeuille ap = actionsDetenues.get(rowIndex);
         
-        switch (columnIndex) {
-            case 0: return ap.action.getNom();
-            case 1: return ap.quantite;
-            case 2: return ap.prixAchat;
-            case 3: return ap.action.getPrix();
-            case 4: return ap.valeurActuelle;
-            case 5: return ap.variation;
-            default: return null;
+        private static final long serialVersionUID = 1L;
+        transient private List<ActionPortefeuille> actionsDetenues;
+        
+        // NOUVELLES COLONNES : Ajout de "Investi" et renommage de "Prix Achat" en "PRU"
+        private final String[] columnNames = {
+            "Action", "Qté", "PRU (€)", "Cours (€)", "Investi (€)", "Val. Actuelle (€)", "+/- (%)"
+        };
+        
+        public PortefeuilleTableModel() {
+            this.actionsDetenues = new ArrayList<>(); 
+        }
+        
+        public void setData(Map<Action, Integer> portefeuilleDetenu, Map<Action, Integer> stockMarche) {
+            this.actionsDetenues = portefeuilleDetenu.entrySet().stream()
+                    .filter(entry -> entry.getValue() > 0)
+                    .map(entry -> {
+                        Action actionDetenue = entry.getKey(); // La clé contient le PRU (Prix Moyen)
+                        int quantite = entry.getValue();
+                        
+                        // Trouver le prix actuel marché
+                        Action actionMarche = stockMarche.keySet().stream()
+                            .filter(a -> a.getNom().equals(actionDetenue.getNom()))
+                            .findFirst()
+                            .orElse(actionDetenue); 
+                            
+                        // actionDetenue.getPrix() retourne bien le PRU grâce à notre modif dans Portefeuille.java
+                        return new ActionPortefeuille(
+                            actionMarche, 
+                            quantite, 
+                            actionDetenue.getPrix(), 
+                            actionMarche.getPrix()
+                        );
+                    })
+                    .sorted(Comparator.comparing(ap -> ap.action.getNom()))
+                    .collect(Collectors.toList());
+            fireTableDataChanged();
+        }
+        
+        public void clearData() {
+            this.actionsDetenues = new ArrayList<>();
+            fireTableDataChanged();
+        }
+
+        public int getRowCount() { return actionsDetenues.size(); }
+        public int getColumnCount() { return columnNames.length; }
+        public String getColumnName(int col) { return columnNames[col]; }
+      
+        public Class<?> getColumnClass(int columnIndex) {
+            if (columnIndex == 1) return Integer.class; // La quantité est un entier
+            if (columnIndex >= 2) return Double.class;  // Le reste sont des doubles
+            return String.class; 
+        }
+
+        public Object getValueAt(int rowIndex, int columnIndex) {
+            ActionPortefeuille ap = actionsDetenues.get(rowIndex);
+            
+            switch (columnIndex) {
+                case 0: return ap.action.getNom();
+                case 1: return ap.quantite;
+                case 2: return ap.prixAchatMoyen; // PRU
+                case 3: return ap.action.getPrix(); // Cours actuel
+                case 4: return ap.valeurInvestie; // Nouveau
+                case 5: return ap.valeurActuelle;
+                case 6: return ap.variation;
+                default: return null;
+            }
         }
     }
-}
 
 }
