@@ -120,6 +120,8 @@ public class Client implements Serializable{
             fluxEntree = new ObjectInputStream(socket.getInputStream());
             //Balise test
             System.out.println(this.getNom() + " connecté à " + hote + ":" + port);
+            //sauvegarde client
+            this.sauvegarderClient();
         } catch (IOException e){
             //Balise test
             System.err.println("Erreur de connexion: " + e.getMessage());
@@ -129,7 +131,10 @@ public class Client implements Serializable{
         }
     }
 
-    //lance le thread de MAJ en interne pour recuperer les actions a jour 
+    //lance le thread de MAJ en interne pour recuperer les actions a jour (englobe synchronizerStockMarche
+    //Aurait pu être codé dans la même méthode mais nous trouvons plus clair de l'écrire ainsi en décomposant la 
+    //fonction de chaque méthode)
+
     public void lancerMiseAJourActions(Runnable callback){
         Thread majThread = new Thread(() ->{
             //Balise test
@@ -171,6 +176,8 @@ public class Client implements Serializable{
     }
 
     public void deconnecter(){
+        //Sauvegarde Client
+        this.sauvegarderClient();
         // Arrêt du thread de mise à jour des prix
         if (updateThread != null && updateThread.isAlive()){
             updateThread.interrupt();
@@ -222,6 +229,9 @@ public class Client implements Serializable{
         if (resultat != null && resultat.estAcceptee()){ 
             portefeuille.ajouterAction(actionActuelle, quantite);
             portefeuille.setSoldeDispo(portefeuille.getSoldeDispo() - cout);
+            //Sauvegarde du client , au cas ou on crash et qu'il n'y a pas de deconnexion
+            //propre. Pour eviter que des actions disparaissent (sauvegarde au fil de l'eau)
+            this.sauvegarderClient();
             //Balise test
             //System.out.println("Achat validé : " + quantite + " x " + actionActuelle.getNom() + " achetés au prix de " + String.format("%.2f", actionActuelle.getPrix()) + "€/unité.");
             return true; // Succès: stock marché a diminué
@@ -255,6 +265,10 @@ public class Client implements Serializable{
             // Le serveur valide toujours la vente dans notre logique du moment qu'on a le stock
             portefeuille.retirerAction(action, quantite);
             portefeuille.setSoldeDispo(portefeuille.getSoldeDispo() + prixDeVente * quantite);
+            //Sauvegarde du client , au cas ou on crash et qu'il n'y a pas de deconnexion
+            //propre. Pour eviter que des actions disparaissent (sauvegarde au fil de l'eau)
+            this.sauvegarderClient();
+            
             //Balise test
             //System.out.println("Vente validée : " + quantite + " x " + actionActuelle.getNom() + " vendus à " + String.format("%.2f", prixDeVente) + "€/unité.");
             return true; //tout est bon on va augmenter le stock marché 
@@ -302,7 +316,6 @@ public class Client implements Serializable{
 
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
             oos.writeObject(this); // Sauvegarde l'objet Client
-            System.out.println("Client " + this.nom + " sauvegardé");
         } catch (IOException e) {
             System.err.println("Soucis, sauvegarde du client " + this.nom + " : " + e.getMessage());
         }
