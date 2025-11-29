@@ -2,13 +2,12 @@ import java.util.ArrayList;
 import java.io.*;
 import java.util.Objects;
 
-//###############
-//#Classe Action#
-//###############
-
 //Serializable car on va avoir besoin de les transférer via réseau (actions inlues dans les transactions)
 public class Action implements Serializable{
     
+    // Définir une constante pour la taille maximale (éviter les listes infinis comme on actualise très rapidement)
+    private static final int TAILLE_MAX_HISTORIQUE = 20;
+
     //Protection contre la corruption à la deserialisation
     private static final long serialVersionUID = 1L;
     private String nom;
@@ -65,6 +64,13 @@ public class Action implements Serializable{
         this.prix = prix;
         this.historiqueValeurs.add(prix);
 
+        // FIFO (pour éviter de conserver et serialiser des listes trop grandes)
+        if (this.historiqueValeurs.size() > TAILLE_MAX_HISTORIQUE){
+        this.historiqueValeurs.remove(0); 
+        }
+        //Autre piste d'amelioration : ne pas serialiser l'historique (transient)
+        //Et faire une methode Client qui le demande juste quand besoin (graphique par exemple)
+        // = même logique que le "GET_ACTIONS" de synchronisation des cours
     }
 
     //ToString pour l'affichage
