@@ -199,8 +199,8 @@ public class Serveur{
         new Thread(() ->{serveur.demarrer();}).start();
         Thread.sleep(500);
 
-        // Lancement du thread de mise à jour des prix (toutes les 2 sec)
-        MajCoursThread majCours = new MajCoursThread(serveur, 2000); 
+        // Lancement du thread de mise à jour des prix (toutes les 10 sec)
+        MajCoursThread majCours = new MajCoursThread(serveur, 10000); 
         new Thread(majCours).start();
         //Va recuperer juste avant la fermeture (Shutdown hook)
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
