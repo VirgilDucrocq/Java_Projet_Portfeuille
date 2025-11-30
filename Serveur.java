@@ -87,7 +87,11 @@ public class Serveur{
             t.setValide(true);
         }
         historiqueTransactions.add(t);
+        this.sauvegarderHistorique();
         logTransactionLisible(t);
+        if (t.estAcceptee()) {
+            this.sauvegarderStock();
+        }
     }
 
 
@@ -133,7 +137,8 @@ public class Serveur{
     public void sauvegarderStock() {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FICHIER_STOCK))) {
             oos.writeObject(stockGlobal); // On écrit la Map entière directement
-            System.out.println("État du stock sauvegardé dans " + FICHIER_STOCK);
+            //Balise test
+            //System.out.println("État du stock sauvegardé dans " + FICHIER_STOCK);
         } catch (IOException e) {
             System.err.println("Erreur sauvegarde stock : " + e.getMessage());
         }
@@ -199,8 +204,8 @@ public class Serveur{
         new Thread(() ->{serveur.demarrer();}).start();
         Thread.sleep(500);
 
-        // Lancement du thread de mise à jour des prix (toutes les 10 sec)
-        MajCoursThread majCours = new MajCoursThread(serveur, 10000); 
+        // Lancement du thread de mise à jour des prix (toutes les 2 sec)
+        MajCoursThread majCours = new MajCoursThread(serveur, 2000); 
         new Thread(majCours).start();
         //Va recuperer juste avant la fermeture (Shutdown hook)
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
