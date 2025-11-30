@@ -118,6 +118,8 @@ public class Serveur{
         }
     }
 
+    //Pas dans le diagramme des classes car cette methode revient à sauvegarderhistorique
+    //Mais en version lisible par l'humain
     public void logTransactionLisible(Transaction t){
         try (PrintWriter pw = new PrintWriter(new FileWriter(FICHIER_LOG_LISIBLE, true))){
             // Utilisation de ChronoUnit pour tronquer l'heure aux secondes
@@ -138,7 +140,7 @@ public class Serveur{
     }
 
     @SuppressWarnings("unchecked")
-    public static Map<Action, Integer> chargerStockDepuisFichier() {
+    public static Map<Action, Integer> chargerStock() {
         File file = new File(FICHIER_STOCK);
         if (file.exists()) {
             try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FICHIER_STOCK))) {
@@ -169,7 +171,7 @@ public class Serveur{
         Action obligationCorp = new Action("Obligation Corp", 65, ActionType.OBLIGATION_HAUT_RENDEMENT); 
         Action cuivre = new Action("Cuivre", 90, ActionType.MATIERE_PREMIERE_INDUSTRIELLE);
 
-        Map<Action, Integer> stockInitial = Serveur.chargerStockDepuisFichier();
+        Map<Action, Integer> stockInitial = Serveur.chargerStock();
         
         if (stockInitial == null) {
             System.out.println("Aucune sauvegarde de stock trouvée, initialisation par défaut");
