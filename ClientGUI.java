@@ -348,27 +348,39 @@ public class ClientGUI extends JFrame{
 
         graphiquePanel = new GraphiquePrix();
         graphiquePanel.setBackground(BG_MEDIUM); 
-        graphiquePanel.setPreferredSize(new Dimension(450, 400)); 
+        graphiquePanel.setPreferredSize(new Dimension(700, 450)); 
         graphiquePanel.setBorder(createTitledBorder("HISTORIQUE (Sélectionnez une action)", FG_LIGHT));
         
         //Panneau d'interaction (Acheter/Vendre)
         interactionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         interactionPanel.setBackground(BG_MEDIUM.darker());
-        interactionPanel.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
+        interactionPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        actionSelectionLabel = new JLabel("Sélectionnez une action pour interagir.");
+        actionSelectionLabel = new JLabel("Sélectionnez une action pour interagir");
         actionSelectionLabel.setForeground(FG_LIGHT);
         actionSelectionLabel.setFont(FONT_HEADER);
+        actionSelectionLabel.setPreferredSize(new Dimension(0, 30));
         
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0)); // 20px d'écart entre les boutons
+        btnPanel.setOpaque(false);
+
         acheterBtn = new JButton("ACHETER 1");
         vendreBtn = new JButton("VENDRE 1");
         
+        acheterBtn.setBackground(ACCENT_GREEN.darker());
+        acheterBtn.setForeground(Color.WHITE);
+        vendreBtn.setBackground(ACCENT_RED.darker());
+        vendreBtn.setForeground(Color.WHITE);
+
         acheterBtn.setEnabled(false);
         vendreBtn.setEnabled(false);
         
-        interactionPanel.add(actionSelectionLabel);
-        interactionPanel.add(acheterBtn);
-        interactionPanel.add(vendreBtn);
+        btnPanel.add(acheterBtn);
+        btnPanel.add(vendreBtn);
+
+        interactionPanel.add(actionSelectionLabel, BorderLayout.NORTH); // Texte au dessus
+        interactionPanel.add(btnPanel, BorderLayout.CENTER);
+        
         
         eastPanel.add(graphiquePanel, BorderLayout.CENTER);
         eastPanel.add(interactionPanel, BorderLayout.SOUTH);
@@ -448,6 +460,8 @@ public class ClientGUI extends JFrame{
             actionsTable.getSelectionModel().clearSelection();
             actionGraphiqueCourante = null; 
             setSimulatorState(false);
+            // Force le tableau à se repeindre avec les valeurs 0.0
+            updateSimulatorDisplay();
             JOptionPane.showMessageDialog(this, "Déconnexion du marché réussie, consultation du portefeuille en mode Hors-Ligne");
 
 
@@ -805,20 +819,24 @@ static class ActionPortefeuille {
         public final double valeurActuelle; // Ce que ça vaut maintenant
         public final double variation;      // Gain/Perte en %
 
+        public final double prixAffiche;
+
         public ActionPortefeuille(Action action, int quantite, double prixAchatMoyen, double prixActuel) {
             this.action = action;
             this.quantite = quantite;
             this.prixAchatMoyen = prixAchatMoyen;
             
+            this.prixAffiche = prixActuel;
+
             // Calculs
             this.valeurInvestie = prixAchatMoyen * quantite;
             this.valeurActuelle = prixActuel * quantite;
             
             // Calcul de la variation en pourcentage
-            if (prixAchatMoyen > 0) {
-                this.variation = (prixActuel / prixAchatMoyen - 1.0) * 100.0;
-            } else {
+            if (prixActuel == 0.0 || prixAchatMoyen == 0.0) {
                 this.variation = 0.0;
+            } else {
+                this.variation = (prixActuel / prixAchatMoyen - 1.0) * 100.0;
             }
         }
     }
@@ -829,7 +847,6 @@ static class PortefeuilleTableModel extends AbstractTableModel {
         private static final long serialVersionUID = 1L;
         transient private List<ActionPortefeuille> actionsDetenues;
         
-        // NOUVELLES COLONNES : Ajout de "Investi" et renommage de "Prix Achat" en "PRU"
         private final String[] columnNames = {
             "Action", "Qté", "PRU (€)", "Cours (€)", "Investi (€)", "Val. Actuelle (€)", "+/- (%)"
         };
@@ -839,24 +856,35 @@ static class PortefeuilleTableModel extends AbstractTableModel {
         }
         
         public void setData(Map<Action, Integer> portefeuilleDetenu, Map<Action, Integer> stockMarche) {
+            
+            // On vérifie si on est connecté (stock marché non vide)
+            boolean estEnLigne = !stockMarche.isEmpty();
+
             this.actionsDetenues = portefeuilleDetenu.entrySet().stream()
                     .filter(entry -> entry.getValue() > 0)
                     .map(entry -> {
-                        Action actionDetenue = entry.getKey(); // La clé contient le PRU (Prix Moyen)
+                        Action actionDetenue = entry.getKey(); 
                         int quantite = entry.getValue();
                         
-                        // Trouver le prix actuel marché
-                        Action actionMarche = stockMarche.keySet().stream()
-                            .filter(a -> a.getNom().equals(actionDetenue.getNom()))
-                            .findFirst()
-                            .orElse(actionDetenue); 
-                            
-                        // actionDetenue.getPrix() retourne bien le PRU grâce à notre modif dans Portefeuille.java
+                        double prixCourant;
+
+                        if (estEnLigne) {
+                            // EN LIGNE : On cherche le vrai prix
+                            Action actionMarche = stockMarche.keySet().stream()
+                                .filter(a -> a.getNom().equals(actionDetenue.getNom()))
+                                .findFirst()
+                                .orElse(actionDetenue);
+                            prixCourant = actionMarche.getPrix();
+                        } else {
+                            // HORS LIGNE : Le prix est 0
+                            prixCourant = 0.0;
+                        }
+
                         return new ActionPortefeuille(
-                            actionMarche, 
+                            actionDetenue, // On garde l'objet action de base pour le nom
                             quantite, 
-                            actionDetenue.getPrix(), 
-                            actionMarche.getPrix()
+                            actionDetenue.getPrix(), // PRU
+                            prixCourant // 0.0 si hors ligne
                         );
                     })
                     .sorted(Comparator.comparing(ap -> ap.action.getNom()))
@@ -886,8 +914,8 @@ static class PortefeuilleTableModel extends AbstractTableModel {
                 case 0: return ap.action.getNom();
                 case 1: return ap.quantite;
                 case 2: return ap.prixAchatMoyen; // PRU
-                case 3: return ap.action.getPrix(); // Cours actuel
-                case 4: return ap.valeurInvestie; // Nouveau
+                case 3: return ap.prixAffiche; // Cours actuel
+                case 4: return ap.valeurInvestie; 
                 case 5: return ap.valeurActuelle;
                 case 6: return ap.variation;
                 default: return null;
